@@ -1,13 +1,12 @@
 ;;Include the "sound" extension for sound effects.
 extensions [sound]
 
-;;These are special types of turtles for convenience
-breed [lines line]
-
 breed [whitepieces whitepiece]
 breed [blackpieces blakcpiece]
 
+;; Note that once you created certain breed of links, all links must be given a special breed.
 undirected-link-breed [lineLinks lineLink]
+
 ;;These are special types of links between white and black pieces of chess.
 undirected-link-breed [white-links white-link]
 undirected-link-breed [black-links black-link]
@@ -15,6 +14,10 @@ undirected-link-breed [black-links black-link]
 ;;Declare global variables
 globals [mouse-clicked? chess-color num_lines]
 
+;; When using HubNet features, the startup procedure must be delcared and run the hubnet-reset instruction
+;;to startup
+;;  hubnet-reset
+;;end
 
 to setup
   clear-all
@@ -23,10 +26,10 @@ to setup
   set num_lines 10 ;; By Default, set the chess board to have 19x19 lines
   resize-world 0 num_lines 0 num_lines
 
-  import-drawing "img/wood.jpg"
+  ;import-drawing "img/wood.jpg"
 
   ;;Draw the grid
-  drawXYGrid
+  ;drawXYGrid
 
 end
 
@@ -44,29 +47,6 @@ to drawXYGrid
     create-lineLinks-with other turtles with [distance myself <= 1]
   ]
 end
-
-to drawYGrid [aNumber]
-  set heading 90
-  pen-down
-  set color white
-  set xcor 0
-  let y who * (world-height / aNumber)
-  set ycor y
-  fd world-width
-  set size 0
-end
-
-to drawXGrid [aNumber]
-  set heading 0
-    pen-down
-    set color white
-    set ycor 0
-    let x who * (world-width / aNumber)
-    set xcor x
-    fd world-height
-    set size 0
-end
-
 
 to go
   mouse-manager
@@ -97,6 +77,7 @@ to mouse-manager
     ;; This is where the mouse-clicked? code block manages false condition.
   ] [
     set mouse-clicked? false
+    showXY
   ]
 end
 
@@ -106,21 +87,39 @@ to bonk!
   ;sound:play-note "TRUMPET" instrument 64 2
 end
 
+to showXY
+  ;setxy mouse-xcor mouse-ycor
+  let mX (round mouse-xcor)
+  let mY (round mouse-ycor)
+  show word mX word "," mY
+  ask patch mX mY [
+    set pcolor blue
+    wait 0.1
+    set pcolor black
+    ask whitepieces in-radius 0 [
+      set pcolor yellow
+    ]
+  ]
+end
+
 ;;This procedure is to set up the location and links with other pieces
 to dealOneHandofChess [myColor]
 
   ;Change the shape and size of the chess piece
   set shape "circle"
-  set size 1
+  set size 0.5
 
   set color myColor
 
   ;setxy mouse-xcor mouse-ycor
-  setxy ( round mouse-xcor) (round mouse-ycor)
+  let mX (round mouse-xcor)
+  let mY (round mouse-ycor)
+
+  setxy mX mY
   ifelse (myColor = white) [
-    ;;create-white-links-with other whitepieces
+    create-white-links-with other whitepieces in-radius 1
   ][
-    ;;create-black-links-with other blackpieces
+    create-black-links-with other blackpieces in-radius 1
   ]
 end
 @#$#@#$#@
@@ -194,7 +193,7 @@ instrument
 instrument
 1
 128
-86.0
+21.0
 1
 1
 NIL
