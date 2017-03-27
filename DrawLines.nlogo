@@ -3,9 +3,11 @@ extensions [sound]
 
 ;;These are special types of turtles for convenience
 breed [lines line]
+
 breed [whitepieces whitepiece]
 breed [blackpieces blakcpiece]
 
+undirected-link-breed [lineLinks lineLink]
 ;;These are special types of links between white and black pieces of chess.
 undirected-link-breed [white-links white-link]
 undirected-link-breed [black-links black-link]
@@ -21,14 +23,26 @@ to setup
   set num_lines 10 ;; By Default, set the chess board to have 19x19 lines
   resize-world 0 num_lines 0 num_lines
 
-  ;import-drawing "img/wood.jpg"
+  import-drawing "img/wood.jpg"
 
   ;;Draw the grid
-  create-turtles num_lines[
-    drawYGrid num_lines
-    drawXGrid num_lines
+  drawXYGrid
+
+end
+
+;; Draw XY Grid
+to drawXYGrid
+  ask patches [
+    sprout 1 [
+      set color white
+      set shape "circle"
+      set size 0
+    ]
   ]
 
+  ask turtles [
+    create-lineLinks-with other turtles with [distance myself <= 1]
+  ]
 end
 
 to drawYGrid [aNumber]
@@ -103,20 +117,18 @@ to dealOneHandofChess [myColor]
 
   ;setxy mouse-xcor mouse-ycor
   setxy ( round mouse-xcor) (round mouse-ycor)
-  show word "xcor:"  word xcor word "ycor:" word ycor "."
-  show (list xcor ycor (xcor + ycor))
   ifelse (myColor = white) [
-    create-white-links-with other whitepieces
+    ;;create-white-links-with other whitepieces
   ][
-    create-black-links-with other blackpieces
+    ;;create-black-links-with other blackpieces
   ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-510
-311
+511
+312
 -1
 -1
 26.64
@@ -126,8 +138,8 @@ GRAPHICS-WINDOW
 1
 1
 0
-1
-1
+0
+0
 1
 0
 10
