@@ -1,47 +1,58 @@
+;;Include the "sound" extension for sound effects.
 extensions [sound]
 
+;;These are special types of turtles for convenience
 breed [lines line]
 breed [whitepieces whitepiece]
 breed [blackpieces blakcpiece]
 
+;;These are special types of links between white and black pieces of chess.
 undirected-link-breed [white-links white-link]
 undirected-link-breed [black-links black-link]
 
-globals [ mouse-clicked? chess-color num_lines]
+;;Declare global variables
+globals [mouse-clicked? chess-color num_lines]
+
 
 to setup
-  ca
+  clear-all
   reset-ticks
   set chess-color true
   set num_lines 10 ;; By Default, set the chess board to have 19x19 lines
   resize-world 0 num_lines 0 num_lines
 
-  import-drawing "img/wood.jpg"
+  ;import-drawing "img/wood.jpg"
 
-
-  create-lines num_lines [
-    set heading 90
-    pen-down
-    set color white
-    set xcor 0
-    let y who * (world-height / num_lines)
-    set ycor y
-    fd world-width
-    set size 0
-  ]
-
-   create-lines num_lines [
-    set heading 0
-    pen-down
-    set color white
-    set ycor 0
-    let x who * (world-width / num_lines)
-    set xcor x
-    fd world-height
-    set size 0
+  ;;Draw the grid
+  create-turtles num_lines[
+    drawYGrid num_lines
+    drawXGrid num_lines
   ]
 
 end
+
+to drawYGrid [aNumber]
+  set heading 90
+  pen-down
+  set color white
+  set xcor 0
+  let y who * (world-height / aNumber)
+  set ycor y
+  fd world-width
+  set size 0
+end
+
+to drawXGrid [aNumber]
+  set heading 0
+    pen-down
+    set color white
+    set ycor 0
+    let x who * (world-width / aNumber)
+    set xcor x
+    fd world-height
+    set size 0
+end
+
 
 to go
   mouse-manager
@@ -50,22 +61,26 @@ end
 
 to mouse-manager
   ifelse mouse-down? [
+    ;; The following code structure ensure that once mouse is clicked once, the following
+    ;; activities are only executed once.
     if not mouse-clicked? [
       set mouse-clicked? true
-      ; ask patch mouse-xcor mouse-ycor [ set pcolor black ]
-      create-whitepieces 1 [
-        set shape "circle"
-        set size 1
-        ifelse chess-color [
-          set color red
+
+      ;This following ifelse block ensures that black and white pieces are being created in turns.
+      ifelse chess-color [
+          create-blackpieces 1 [
+            dealOneHandofChess red
+          ]
           set chess-color false
-        ][
-          set color white
+      ][
+          create-whitepieces 1 [
+            dealOneHandofChess white
+          ]
           set chess-color true
-        ]
-        move-location
       ]
+
     ]
+    ;; This is where the mouse-clicked? code block manages false condition.
   ] [
     set mouse-clicked? false
   ]
@@ -78,19 +93,30 @@ to bonk!
 end
 
 ;;This procedure is to set up the location and links with other pieces
-to move-location
+to dealOneHandofChess [myColor]
+
+  ;Change the shape and size of the chess piece
+  set shape "circle"
+  set size 1
+
+  set color myColor
+
   ;setxy mouse-xcor mouse-ycor
   setxy ( round mouse-xcor) (round mouse-ycor)
   show word "xcor:"  word xcor word "ycor:" word ycor "."
   show (list xcor ycor (xcor + ycor))
-  create-white-links-with other whitepieces
+  ifelse (myColor = white) [
+    create-white-links-with other whitepieces
+  ][
+    create-black-links-with other blackpieces
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-511
-312
+510
+311
 -1
 -1
 26.64
@@ -156,7 +182,7 @@ instrument
 instrument
 1
 128
-58.0
+86.0
 1
 1
 NIL

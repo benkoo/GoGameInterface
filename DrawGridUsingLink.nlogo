@@ -1,116 +1,39 @@
-extensions [sound]
-
-breed [lines line]
-breed [whitepieces whitepiece]
-breed [blackpieces blakcpiece]
-
-undirected-link-breed [white-links white-link]
-undirected-link-breed [black-links black-link]
-
-globals [ mouse-clicked? chess-color num_lines]
-
 to setup
-  ca
-  reset-ticks
-  set chess-color true
-  set num_lines 10 ;; By Default, set the chess board to have 19x19 lines
-  resize-world 0 num_lines 0 num_lines
-
-  import-drawing "img/wood.jpg"
-
-
-  create-lines num_lines [
-    set heading 90
-    pen-down
-    set color white
-    set xcor 0
-    let y who * (world-height / num_lines)
-    set ycor y
-    fd world-width
-    set size 0
-  ]
-
-   create-lines num_lines [
-    set heading 0
-    pen-down
-    set color white
-    set ycor 0
-    let x who * (world-width / num_lines)
-    set xcor x
-    fd world-height
-    set size 0
-  ]
-
-end
-
-to go
-  mouse-manager
-end
-
-
-to mouse-manager
-  ifelse mouse-down? [
-    if not mouse-clicked? [
-      set mouse-clicked? true
-      ; ask patch mouse-xcor mouse-ycor [ set pcolor black ]
-      create-whitepieces 1 [
-        set shape "circle"
-        set size 1
-        ifelse chess-color [
-          set color red
-          set chess-color false
-        ][
-          set color white
-          set chess-color true
-        ]
-        ;setxy mouse-xcor mouse-ycor
-        setxy ( round mouse-xcor) (round mouse-ycor)
-        show word "xcor:"  word xcor word "ycor:" word ycor "."
-        show (list xcor ycor (xcor + ycor))
-        create-white-links-with other whitepieces
-      ]
+  clear-all
+  ask patches [
+    sprout 1 [
+      set color white
+      set shape "circle"
+      set size 0
     ]
-  ] [
-    set mouse-clicked? false
   ]
-end
 
-;;This procedure is to create a function for sound effects
-to bonk!
-  sound:play-drum "ACOUSTIC SNARE" instrument
-  ;sound:play-note "TRUMPET" instrument 64 2
-end
-
-;;This procedure is to set up the location and links with other pieces
-to move-location
-  ;setxy mouse-xcor mouse-ycor
-        setxy ( round mouse-xcor) (round mouse-ycor)
-        show word "xcor:"  word xcor word "ycor:" word ycor "."
-        show (list xcor ycor (xcor + ycor))
-        create-white-links-with other whitepieces
+  ask turtles [
+    create-links-with other turtles with [distance myself <= 1 ]
+  ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
 10
-511
-312
+647
+448
 -1
 -1
-26.64
+13.0
 1
 10
 1
 1
 1
 0
-1
-1
-1
 0
-10
 0
-10
+1
+-16
+16
+-16
+16
 0
 0
 1
@@ -118,53 +41,21 @@ ticks
 30.0
 
 BUTTON
-47
-148
-118
-181
-Set Up
+26
+195
+92
+228
+NIL
 setup
 NIL
 1
 T
 OBSERVER
 NIL
-A
-NIL
-NIL
-1
-
-BUTTON
-51
-227
-114
-260
-Go
-go
-T
-1
-T
-OBSERVER
-NIL
 NIL
 NIL
 NIL
 1
-
-SLIDER
-12
-288
-184
-321
-instrument
-instrument
-1
-128
-58.0
-1
-1
-NIL
-HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
