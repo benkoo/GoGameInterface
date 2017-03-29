@@ -1,8 +1,11 @@
 ;;Include the "sound" extension for sound effects.
 extensions [sound]
 
+breed [emptyspaces emptyspace]
 breed [whitepieces whitepiece]
 breed [blackpieces blakcpiece]
+
+emptyspaces-own [pieceCount occupied?]
 
 ;; Note that once you created certain breed of links, all links must be given a special breed.
 undirected-link-breed [lineLinks lineLink]
@@ -23,20 +26,22 @@ to setup
   clear-all
   reset-ticks
   set chess-color true
-  set num_lines 10 ;; By Default, set the chess board to have 19x19 lines
+  set num_lines 19 ;; By Default, set the chess board to have 19x19 lines
   resize-world 0 num_lines 0 num_lines
 
   ;import-drawing "img/wood.jpg"
 
   ;;Draw the grid
-  ;drawXYGrid
+  drawXYGrid
 
 end
 
 ;; Draw XY Grid
 to drawXYGrid
   ask patches [
-    sprout 1 [
+    sprout-emptyspaces 1 [
+      set occupied? false
+      set pieceCount 0
       set color white
       set shape "circle"
       set size 0
@@ -60,24 +65,58 @@ to mouse-manager
     if not mouse-clicked? [
       set mouse-clicked? true
 
+        ;setxy mouse-xcor mouse-ycor
+        let mX (round mouse-xcor)
+        let mY (round mouse-ycor)
+        let localCount 0
+        ;show word mX word "," mY
+
+        ask patch mX mY [
+          set pcolor blue
+          wait 0.1
+          set pcolor black
+
+          set localCount count whitepieces in-radius 0
+          set localCount (count blackpieces in-radius 0) + localCount
+
+          if localCount > 0 [
+            ask emptyspaces in-radius 0 [
+
+              ifelse localCount > 0 [
+                set occupied? true
+                set pieceCount localCount
+                show word "Number of piece(s) already in this patch:" pieceCount
+              ][
+
+              ]
+            ]
+          ]
+       ]
+
       ;This following ifelse block ensures that black and white pieces are being created in turns.
-      ifelse chess-color [
-          create-blackpieces 1 [
-            dealOneHandofChess red
-          ]
-          set chess-color false
-      ][
-          create-whitepieces 1 [
-            dealOneHandofChess white
-          ]
-          set chess-color true
-      ]
+                ifelse localCount = 0 [
+                  ifelse chess-color [
+                    create-blackpieces 1 [
+                      dealOneHandofChess red
+                    ]
+                    set chess-color false
+                  ][
+                    create-whitepieces 1 [
+                      ;bonk!
+                      dealOneHandofChess white
+                    ]
+                    set chess-color true
+                  ]
+                ][
+                  show word "localCount: " localCount
+                ]
+
 
     ]
     ;; This is where the mouse-clicked? code block manages false condition.
   ] [
     set mouse-clicked? false
-    showXY
+    ;showXY
   ]
 end
 
@@ -91,7 +130,7 @@ to showXY
   ;setxy mouse-xcor mouse-ycor
   let mX (round mouse-xcor)
   let mY (round mouse-ycor)
-  show word mX word "," mY
+  ;show word mX word "," mY
   ask patch mX mY [
     set pcolor blue
     wait 0.1
@@ -116,6 +155,11 @@ to dealOneHandofChess [myColor]
   let mY (round mouse-ycor)
 
   setxy mX mY
+
+  ask emptyspaces in-radius 0 [
+      set occupied? true
+  ]
+
   ifelse (myColor = white) [
     create-white-links-with other whitepieces in-radius 1
   ][
@@ -126,8 +170,8 @@ end
 GRAPHICS-WINDOW
 210
 10
-511
-312
+750
+551
 -1
 -1
 26.64
@@ -141,9 +185,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-10
+19
 0
-10
+19
 0
 0
 1
@@ -193,7 +237,7 @@ instrument
 instrument
 1
 128
-21.0
+126.0
 1
 1
 NIL
