@@ -29,7 +29,7 @@ to setup
   set num_lines 19 ;; By Default, set the chess board to have 19x19 lines
   resize-world 0 num_lines 0 num_lines
 
-  ;import-drawing "img/wood.jpg"
+  import-drawing "img/wood.jpg"
 
   ;;Draw the grid
   drawXYGrid
@@ -49,7 +49,9 @@ to drawXYGrid
   ]
 
   ask turtles [
-    create-lineLinks-with other turtles with [distance myself <= 1]
+    create-lineLinks-with other turtles with [distance myself = 1] [
+      set thickness 0.07
+    ]
   ]
 end
 
@@ -161,9 +163,15 @@ to dealOneHandofChess [myColor]
   ]
 
   ifelse (myColor = white) [
-    create-white-links-with other whitepieces in-radius 1
+    create-white-links-with other whitepieces in-radius 1 [
+      set color blue
+      set thickness 0.2
+    ]
   ][
-    create-black-links-with other blackpieces in-radius 1
+    create-black-links-with other blackpieces in-radius 1 [
+      set color yellow
+      set thickness 0.2
+    ]
   ]
 end
 @#$#@#$#@
@@ -246,11 +254,11 @@ HORIZONTAL
 @#$#@#$#@
 ## WHAT IS IT?
 
-(a general understanding of what the model is trying to show or explain)
+This is an interactive program for users to play Go, the chess game.
 
 ## HOW IT WORKS
 
-(what rules the agents use to create the overall behavior of the model)
+The Go game should allow players to use mouse cursors to play black and white pieces in turn. The black side should always go first, then white, etc... Then we will follow the rule of Go.
 
 ## HOW TO USE IT
 
