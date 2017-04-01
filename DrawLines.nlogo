@@ -3,9 +3,9 @@ extensions [sound]
 
 breed [emptyspaces emptyspace]
 breed [whitepieces whitepiece]
-breed [blackpieces blakcpiece]
+breed [blackpieces blackpiece]
 
-emptyspaces-own [pieceCount occupied?]
+emptyspaces-own [occupied?]
 
 ;; Note that once you created certain breed of links, all links must be given a special breed.
 undirected-link-breed [lineLinks lineLink]
@@ -15,21 +15,22 @@ undirected-link-breed [white-links white-link]
 undirected-link-breed [black-links black-link]
 
 ;;Declare global variables
-globals [mouse-clicked? chess-color num_lines]
+globals [mouse-clicked? isBlack? num_lines currentNumberOfLinkedPieces]
 
 ;; When using HubNet features, the startup procedure must be delcared and run the hubnet-reset instruction
-;;to startup
-;;  hubnet-reset
-;;end
+;to startup
+;  hubnet-reset
+;end
 
 to setup
   clear-all
   reset-ticks
-  set chess-color true
-  set num_lines 19 ;; By Default, set the chess board to have 19x19 lines
+  set isBlack? true
+  set num_lines 19 ;; Set the chess board to have num_lines * num_lines lines
   resize-world 0 num_lines 0 num_lines
+  set currentNumberOfLinkedPieces 0
 
-  import-drawing "img/wood.jpg"
+  ;import-drawing "img/wood.jpg"
 
   ;;Draw the grid
   drawXYGrid
@@ -41,7 +42,6 @@ to drawXYGrid
   ask patches [
     sprout-emptyspaces 1 [
       set occupied? false
-      set pieceCount 0
       set color white
       set shape "circle"
       set size 0
@@ -65,61 +65,33 @@ to mouse-manager
     ;; The following code structure ensure that once mouse is clicked once, the following
     ;; activities are only executed once.
     if not mouse-clicked? [
+
       set mouse-clicked? true
+      let mX (round mouse-xcor)
+      let mY (round mouse-ycor)
 
-        ;setxy mouse-xcor mouse-ycor
-        let mX (round mouse-xcor)
-        let mY (round mouse-ycor)
-        let localCount 0
-        ;show word mX word "," mY
-
-        ask patch mX mY [
-          set pcolor blue
-          wait 0.1
-          set pcolor black
-
-          set localCount count whitepieces in-radius 0
-          set localCount (count blackpieces in-radius 0) + localCount
-
-          if localCount > 0 [
-            ask emptyspaces in-radius 0 [
-
-              ifelse localCount > 0 [
-                set occupied? true
-                set pieceCount localCount
-                show word "Number of piece(s) already in this patch:" pieceCount
-              ][
-
-              ]
+      ;Black and white pieces are being created in turns.
+      if canDealHand? mX mY isBlack?[
+          ifelse isBlack? [
+            create-blackpieces 1 [
+              dealOneHandofChess red
             ]
+            set isBlack? false
+          ][
+            create-whitepieces 1 [
+              dealOneHandofChess white
+            ]
+            set isBlack? true
           ]
-       ]
-
-      ;This following ifelse block ensures that black and white pieces are being created in turns.
-                ifelse localCount = 0 [
-                  ifelse chess-color [
-                    create-blackpieces 1 [
-                      dealOneHandofChess red
-                    ]
-                    set chess-color false
-                  ][
-                    create-whitepieces 1 [
-                      ;bonk!
-                      dealOneHandofChess white
-                    ]
-                    set chess-color true
-                  ]
-                ][
-                  show word "localCount: " localCount
-                ]
+      ]; if canDealHand?[]
 
 
-    ]
-    ;; This is where the mouse-clicked? code block manages false condition.
-  ] [
+    ]; if not mouse-clicked[]
+
+  ] ;if mouse-clicked? [1]
+  [
     set mouse-clicked? false
-    ;showXY
-  ]
+  ] ;if mouse-clicked? [2]
 end
 
 ;;This procedure is to create a function for sound effects
@@ -164,15 +136,117 @@ to dealOneHandofChess [myColor]
 
   ifelse (myColor = white) [
     create-white-links-with other whitepieces in-radius 1 [
-      set color blue
+      ;set color blue
       set thickness 0.2
     ]
+
+    ask one-of whitepieces in-radius 0 [
+        ;ask link-neighbors [ set color green ]
+        set currentNumberOfLinkedPieces count link-neighbors
+    ]
+
   ][
     create-black-links-with other blackpieces in-radius 1 [
-      set color yellow
+      ;set color yellow
       set thickness 0.2
     ]
+
+    ask one-of blackpieces in-radius 0 [
+        ;ask link-neighbors [ set color cyan ]
+        set currentNumberOfLinkedPieces count link-neighbors
+    ]
   ]
+end
+
+to-report canDealHand? [x y chess_is_black?]
+  let p_occupied? false
+  let isSurrounded? false
+  ask patch x y [
+    ask one-of emptyspaces in-radius 0 [
+      set p_occupied? not occupied?
+    ]
+    let whiteCount count whitepieces in-radius 1
+    let blackCount count blackpieces in-radius 1
+    let emptyCount count emptyspaces in-radius 1
+
+    if (blackCount + whiteCount) = (emptyCount - 1) [
+
+      if (chess_is_black?) and (whiteCount = (emptyCount - 1))[
+        set isSurrounded? isSurroundedByEnemy? x y chess_is_black?
+      ]
+
+      if (not chess_is_black?) and (blackCount = (emptyCount - 1))[
+        set isSurrounded? isSurroundedByEnemy? x y chess_is_black?
+      ]
+    ]
+
+  ]
+  report p_occupied? and (not isSurrounded?)
+end
+
+;; This procedure checks if the selected location is surrounde by Enemy or not
+to-report isSurroundedByEnemy? [mX mY is_black?]
+
+  let sameColorChessList []
+  show list mX mY
+
+  ask patch mX mY [
+    ifelse is_black? [
+        ask whitepieces in-radius 1 [
+          if not member? self sameColorChessList  [
+            set sameColorChessList lput self sameColorChessList
+          ]
+        ]
+    ][
+        ask blackpieces in-radius 1 [
+          if not member? self sameColorChessList  [
+            set sameColorChessList lput self sameColorChessList
+          ]
+        ]
+    ]
+  ]
+
+  show list "sameColorChessList:" sameColorChessList
+  report true
+end
+
+to-report numBlacks
+  report count blackpieces
+end
+
+to-report numWhites
+  report count whitepieces
+end
+
+to-report currentlyLinkedNodes
+  report currentNumberOfLinkedPieces
+end
+
+to doSomething
+   let localCount 0
+        ;show word mX word "," mY
+   let mX 0
+   let mY 0
+        ask patch mX mY [
+          set pcolor blue
+          wait 0.1
+          set pcolor black
+
+          set localCount count whitepieces in-radius 0
+          set localCount (count blackpieces in-radius 0) + localCount
+
+          if localCount > 0 [
+            ask emptyspaces in-radius 0 [
+
+              ifelse localCount > 0 [
+                set occupied? true
+
+              ][
+
+              ]
+            ]
+          ]
+       ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -251,10 +325,43 @@ instrument
 NIL
 HORIZONTAL
 
+MONITOR
+25
+355
+145
+400
+Number of Blacks
+numBlacks
+17
+1
+11
+
+MONITOR
+23
+416
+146
+461
+Number of Whites
+numWhites
+17
+1
+11
+
+MONITOR
+23
+40
+181
+85
+Currently Linked Nodes
+currentlyLinkedNodes
+17
+1
+11
+
 @#$#@#$#@
 ## WHAT IS IT?
 
-This is an interactive program for users to play Go, the chess game.
+A networked Go playing program designed to demonstrate many programming concepts in NetLogo, including the HubNet infrastructure. 
 
 ## HOW IT WORKS
 
@@ -262,19 +369,19 @@ The Go game should allow players to use mouse cursors to play black and white pi
 
 ## HOW TO USE IT
 
-(how to use the model, including a description of each of the items in the Interface tab)
+Ideally, one should use two computers to play Go. The setup would need users to use HubNet infrastructure's Client Interface. 
 
 ## THINGS TO NOTICE
 
-(suggested things for the user to notice while running the model)
+This program shows you how to leverage the notion of Patches, Links, and Turtle (agent) breeds to represent the game of Go. However, by implementing the Go game using our example, you will understand many idioms commonly used in NetLogo programming langauge.
 
 ## THINGS TO TRY
 
-(suggested things for the user to try to do (move sliders, switches, etc.) with the model)
+We also allow users to change certain configurations, including the chiming sound when a chess piece is placed on the board.
 
 ## EXTENDING THE MODEL
 
-(suggested things to add or change in the Code tab to make the model more complicated, detailed, accurate, etc.)
+We plan to integrate the Go Chess Playing algorithm as a part of this system. This must be integrated with some external programs, such as Python or Mathematica.
 
 ## NETLOGO FEATURES
 
@@ -598,6 +705,42 @@ NetLogo 6.0.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+BUTTON
+19
+82
+99
+115
+dsafdsa
+NIL
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+
+VIEW
+258
+145
+791
+678
+0
+0
+0
+1
+1
+1
+1
+1
+0
+1
+1
+1
+0
+19
+0
+19
+
 @#$#@#$#@
 default
 0.0
