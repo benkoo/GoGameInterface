@@ -171,10 +171,12 @@ to-report canDealHand? [x y chess_is_black?]
 
     if (blackCount + whiteCount) = (emptyCount - 1) [
 
+      ;;Black Completed Surrounded by White
       if (chess_is_black?) and (whiteCount = (emptyCount - 1))[
         set isSurrounded? isSurroundedByEnemy? x y chess_is_black?
       ]
 
+      ;;White Completed Surrounded by Black
       if (not chess_is_black?) and (blackCount = (emptyCount - 1))[
         set isSurrounded? isSurroundedByEnemy? x y chess_is_black?
       ]
@@ -187,22 +189,21 @@ end
 ;; This procedure checks if the selected location is surrounde by Enemy or not
 to-report isSurroundedByEnemy? [mX mY is_black?]
 
+  let chessList []
   let sameColorChessList []
   show list mX mY
 
+  ifelse is_black? [
+    set chessList whitepieces
+  ][
+    set chessList blackpieces
+  ]
+
   ask patch mX mY [
-    ifelse is_black? [
-        ask whitepieces in-radius 1 [
-          if not member? self sameColorChessList  [
-            set sameColorChessList lput self sameColorChessList
-          ]
-        ]
-    ][
-        ask blackpieces in-radius 1 [
-          if not member? self sameColorChessList  [
-            set sameColorChessList lput self sameColorChessList
-          ]
-        ]
+    ask chessList in-radius 1 [
+      if not member? self sameColorChessList  [
+        set sameColorChessList lput self sameColorChessList
+      ]
     ]
   ]
 
