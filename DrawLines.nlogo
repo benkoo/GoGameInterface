@@ -205,10 +205,31 @@ to-report isSurroundedByEnemy? [mX mY is_black?]
         set sameColorChessList lput self sameColorChessList
       ]
     ]
+
+    set sameColorChessList findNeighbors sameColorChessList
+
   ]
 
   show list "sameColorChessList:" sameColorChessList
   report true
+end
+
+;A neighbor search function that identifies chesspieces of same color that are connected within two hops
+to-report findNeighbors [ nodeList ]
+  let aList nodeList
+  foreach aList [ vNode ->
+      ask vNode [
+        ask link-neighbors [
+          if not member? self aList  [
+            set aList lput self aList
+          ]
+        ]
+      ]
+    ]
+
+  ;user-message (word "There are " length aList " chess pieces.")
+  report aList
+
 end
 
 to-report numBlacks
