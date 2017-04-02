@@ -191,6 +191,7 @@ to-report isSurroundedByEnemy? [mX mY is_black?]
 
   let chessList []
   let sameColorChessList []
+  let emptySpots []
   show list mX mY
 
   ifelse is_black? [
@@ -211,6 +212,9 @@ to-report isSurroundedByEnemy? [mX mY is_black?]
   ]
 
   show list "sameColorChessList:" sameColorChessList
+
+  set emptySpots findChis sameColorChessList
+
   report true
 end
 
@@ -237,6 +241,32 @@ to-report findNeighbors [ nodeList ]
 
   ;user-message (word "There are " length aList " chess pieces.")
   report aList
+
+end
+
+to-report findChis [ nodeList ]
+  let newList []
+
+  foreach nodeList [ vNode ->
+    ask vNode[
+      ask emptyspaces in-radius 1 [
+          if not member? self newList  [
+            if not [occupied?] of self [
+              set newList lput self newList
+            ]
+          ]
+      ]
+   ]
+  ]
+
+  foreach newList [ anObj ->
+    ask anObj [
+      set color yellow
+      set shape "circle"
+      set size 0.2
+    ]
+  ]
+  report newList
 
 end
 
