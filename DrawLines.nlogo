@@ -214,9 +214,15 @@ to-report isSurroundedByEnemy? [mX mY is_black?]
   report true
 end
 
-;A neighbor search function that identifies chesspieces of same color that are connected within two hops
+;A neighbor search function that identifies all chesspieces of same color that are connected
 to-report findNeighbors [ nodeList ]
   let aList nodeList
+  let initialCount 0
+  let endingCount length aList
+
+  while [initialCount < length aList]
+  [
+  set initialCount length aList
   foreach aList [ vNode ->
       ask vNode [
         ask link-neighbors [
@@ -226,6 +232,8 @@ to-report findNeighbors [ nodeList ]
         ]
       ]
     ]
+    set endingCount length aList
+  ]
 
   ;user-message (word "There are " length aList " chess pieces.")
   report aList
@@ -242,33 +250,6 @@ end
 
 to-report currentlyLinkedNodes
   report currentNumberOfLinkedPieces
-end
-
-to doSomething
-   let localCount 0
-        ;show word mX word "," mY
-   let mX 0
-   let mY 0
-        ask patch mX mY [
-          set pcolor blue
-          wait 0.1
-          set pcolor black
-
-          set localCount count whitepieces in-radius 0
-          set localCount (count blackpieces in-radius 0) + localCount
-
-          if localCount > 0 [
-            ask emptyspaces in-radius 0 [
-
-              ifelse localCount > 0 [
-                set occupied? true
-
-              ][
-
-              ]
-            ]
-          ]
-       ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
