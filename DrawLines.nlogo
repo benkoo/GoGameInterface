@@ -134,6 +134,8 @@ to dealOneHandofChess [myColor]
       set occupied? true
   ]
 
+  markNodeListInColor sort emptySpaces blue
+
   ifelse (myColor = white) [
     create-white-links-with other whitepieces in-radius 1 [
       ;set color blue
@@ -259,15 +261,20 @@ to-report findChis [ nodeList ]
    ]
   ]
 
-  foreach newList [ anObj ->
+  markNodeListInColor newList yellow
+
+  report newList
+
+end
+
+to markNodeListInColor [turtleList aColor]
+  foreach turtleList [anObj ->
     ask anObj [
-      set color yellow
+      set color aColor
       set shape "circle"
       set size 0.2
     ]
   ]
-  report newList
-
 end
 
 to-report numBlacks
