@@ -5,8 +5,6 @@ breed [emptyspaces emptyspace]
 breed [whitepieces whitepiece]
 breed [blackpieces blackpiece]
 
-emptyspaces-own [occupied?]
-
 ;; Note that once you created certain breed of links, all links must be given a special breed.
 undirected-link-breed [lineLinks lineLink]
 
@@ -41,7 +39,6 @@ end
 to drawXYGrid
   ask patches [
     sprout-emptyspaces 1 [
-      set occupied? false
       set color white
       set shape "circle"
       set size 0
@@ -130,10 +127,6 @@ to dealOneHandofChess [myColor]
 
   setxy mX mY
 
-  ask emptyspaces in-radius 0 [
-      set occupied? true
-  ]
-
   markNodeListInColor sort emptySpaces blue
 
   ifelse (myColor = white) [
@@ -161,12 +154,11 @@ to dealOneHandofChess [myColor]
 end
 
 to-report canDealHand? [x y chess_is_black?]
-  let p_occupied? false
+
   let isSurrounded? false
+
   ask patch x y [
-    ask one-of emptyspaces in-radius 0 [
-      set p_occupied? not occupied?
-    ]
+
     let whiteCount count whitepieces in-radius 1
     let blackCount count blackpieces in-radius 1
     let emptyCount count emptyspaces in-radius 1
@@ -185,7 +177,7 @@ to-report canDealHand? [x y chess_is_black?]
     ]
 
   ]
-  report p_occupied? and (not isSurrounded?)
+  report (isPatchEmpty? x y) and (not isSurrounded?)
 end
 
 ;; This procedure checks if the selected location is surrounde by Enemy or not
@@ -226,12 +218,7 @@ to-report isSurroundedByEnemy? [mX mY is_black?]
     ;; If the surrounded ememy chess only has one chi left, then send "die" message to all of them
     foreach sameColorChessList[ aChess ->
       ask aChess [
-        ask emptyspaces in-radius 0 [
-          set occupied? false
-        ]
-
         die
-
       ]
     ]
     report false
