@@ -226,7 +226,12 @@ to-report isSurroundedByEnemy? [mX mY is_black?]
     ;; If the surrounded ememy chess only has one chi left, then send "die" message to all of them
     foreach sameColorChessList[ aChess ->
       ask aChess [
+        ask emptyspaces in-radius 0 [
+          set occupied? false
+        ]
+
         die
+
       ]
     ]
     report false
