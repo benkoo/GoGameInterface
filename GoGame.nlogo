@@ -13,7 +13,7 @@ undirected-link-breed [white-links white-link]
 undirected-link-breed [black-links black-link]
 
 ;;Declare global variables
-globals [mouse-clicked? isBlack? num_lines currentNumberOfLinkedPieces]
+globals [mouse-clicked? isBlack? num_lines currentNumberOfLinkedPieces koX koY]
 
 ;; When using HubNet features, the startup procedure must be delcared and run the hubnet-reset instruction
 ;to startup
@@ -27,6 +27,8 @@ to setup
   set num_lines 19 ;; Set the chess board to have num_lines * num_lines lines
   resize-world 0 num_lines 0 num_lines
   set currentNumberOfLinkedPieces 0
+  set koX -1
+  set koY -1
 
   ;import-drawing "img/wood.jpg"
 
@@ -68,7 +70,16 @@ to mouse-manager
       let mY (round mouse-ycor)
 
       ;Black and white pieces are being created in turns.
+      ;; Note that canDealHand? is a function that must use patch or turtle as its operating context, I have not figure out why, yet.
       if canDealHand? mX mY isBlack?[
+
+          ;; Knowing that this is a legitimate move, clear the koX and koY status
+          set koX -1
+          set koY -1
+
+          ;; Before placing the chess piece on board, clear the board with dying enemy chess pieces.
+          searchForEnemyPieceToKill mX mY isBlack?
+
           ifelse isBlack? [
             create-blackpieces 1 [
               dealOneHandofChess red
@@ -156,6 +167,8 @@ end
 to-report canDealHand? [x y chess_is_black?]
 
   let isSurrounded? false
+  let patchEmpty? true
+  let isLastEmptySpot? false
 
   ask patch x y [
 
@@ -163,68 +176,134 @@ to-report canDealHand? [x y chess_is_black?]
     let blackCount count blackpieces in-radius 1
     let emptyCount count emptyspaces in-radius 1
 
+    let isLastBlackEmptySpot? isLastEmptySpaceOfColor? x y true
+    let isLastWhiteEmptySpot? isLastEmptySpaceOfColor? x y false
+
+    ;; Checks if this chess is to be placed in an isolated emptyspace
     if (blackCount + whiteCount) = (emptyCount - 1) [
 
-      ;;Black Completed Surrounded by White
-      if (chess_is_black?) and (whiteCount = (emptyCount - 1))[
-        set isSurrounded? isSurroundedByEnemy? x y chess_is_black?
+      ;;Black completely surrounded by White
+      if (chess_is_black?) [
+        ;If its neighbor has at least one of the same color, it is OK
+        ifelse 0 < blackCount [
+          set isSurrounded? false
+          ;Find out if this is the last empty spot
+          set isLastEmptySpot? isLastBlackEmptySpot?
+        ][
+          ;Find out if this is the last empty spot of surrounding whitepieces
+          ifelse isLastWhiteEmptySpot?[
+            set isSurrounded? false ; Because as this chess is place in this location, the surrounding ones will die!
+          ][
+            set isSurrounded? true
+          ]
+        ]
+
       ]
 
-      ;;White Completed Surrounded by Black
-      if (not chess_is_black?) and (blackCount = (emptyCount - 1))[
-        set isSurrounded? isSurroundedByEnemy? x y chess_is_black?
+      ;;White completely surrounded by Black
+      if (not chess_is_black?) [
+        ;If its neighbor has at least one of the same color, it is OK
+        ifelse 0 < whiteCount [
+          set isSurrounded? false
+          ;Find out if this is the last empty spot
+          set isLastEmptySpot? isLastWhiteEmptySpot?
+        ][
+          ;Find out if this is the last empty spot of surrounding blackpieces
+          ifelse isLastBlackEmptySpot?[
+            set isSurrounded? false ; Because as this chess is place in this location, the surrounding ones will die!
+          ][
+            set isSurrounded? true
+          ]
+        ]
       ]
     ]
 
   ]
-  report (isPatchEmpty? x y) and (not isSurrounded?)
+
+  let okToDeal true
+  set patchEmpty? (isPatchEmpty? x y)
+  set okToDeal patchEmpty? and (not isSurrounded?) and (not isLastEmptySpot?)
+
+
+  ifelse not okToDeal [
+    if not patchEmpty?[
+      user-message word "The location " word x word ", " word y " is occupied!"
+    ]
+
+    if isSurrounded?[
+      user-message "The location is completely surrounded by enemy chess pieces"
+    ]
+
+    if isLastEmptySpot?[
+      user-message "The location is the last empty spot (chi) for the friendly pieces"
+    ]
+  ][
+    ;; if this is allowed to deal, check if this violates the ko condition
+    if (koX = x) and (koY = y)[
+      set okToDeal false
+      user-message word "This piece place on " word x word ", " word y " is a violation of the Ko rule."
+    ]
+  ]
+
+  report okToDeal
 end
 
-;; This procedure checks if the selected location is surrounde by Enemy or not
-to-report isSurroundedByEnemy? [mX mY is_black?]
+;; This procedure checks if the selected location is completely surrounded by Enemy or not
+to searchForEnemyPieceToKill [mX mY is_black?]
 
   let chessList []
-  let sameColorChessList []
+  let neighboringEnemyChessList []
   let emptySpots []
+  let koCount 0
+
   show list mX mY
 
   ifelse is_black? [
-    set chessList whitepieces
+    set chessList whitepieces  ;; For black being placed at mX mY, search for whitepieces
   ][
-    set chessList blackpieces
+    set chessList blackpieces  ;; For white being placed at mX mY, search for blackpieces
   ]
 
   ask patch mX mY [
     ask chessList in-radius 1 [
-      if not member? self sameColorChessList  [
-        set sameColorChessList lput self sameColorChessList
+      if not member? self neighboringEnemyChessList  [
+        set neighboringEnemyChessList lput self neighboringEnemyChessList
       ]
     ]
-
-    set sameColorChessList findNeighbors sameColorChessList
-
   ]
 
-  ;show list "sameColorChessList:" sameColorChessList
+  foreach neighboringEnemyChessList [ enemyChess ->
+    let connectedEnemies findNeighborsOfChess enemyChess
 
-  set emptySpots findChis sameColorChessList
+    set emptySpots findChis connectedEnemies
+    let emptyCount 0
+    set emptyCount length emptySpots
 
-  let emptyCount 0
+    if (emptyCount = 1)[
+      ;; user-message (word "Is surrounded by chess with " word emptyCount " chi." )
+      ;; If the surrounded ememy chess only has one chi left, then send "die" message to all of them
+      foreach connectedEnemies [ aChess ->
+        ask aChess [
+          set koCount 1 + koCount
+          set koX [xcor] of aChess
+          set koY [ycor] of aChess
+          die
+        ]
+      ]
 
-  set emptyCount length emptySpots
-
-  if (emptyCount = 1)[
-    user-message (word "Is surrounded by chess with " word emptyCount " chi." )
-    ;; If the surrounded ememy chess only has one chi left, then send "die" message to all of them
-    foreach sameColorChessList[ aChess ->
-      ask aChess [
-        die
+      ;;If koCount is not 1, then this is not a Ko.
+      if koCount != 1 [
+        set koX -1
+        set koY -1
       ]
     ]
-    report false
   ]
 
-  report true
+
+end
+
+to-report findNeighborsOfChess [ aChess ]
+  report findNeighbors (list aChess)
 end
 
 ;A neighbor search function that identifies all chesspieces of same color that are connected
@@ -253,6 +332,9 @@ to-report findNeighbors [ nodeList ]
 
 end
 
+;; Given a list of black or white pieces,
+;; find all the emptyspaces next to them
+;; and return them in a list.
 to-report findChis [ nodeList ]
   let newList []
 
@@ -273,6 +355,29 @@ to-report findChis [ nodeList ]
   report newList
 
 end
+
+;; Given black or white choices,
+;; return a boolean value indicating whether
+to-report isLastEmptySpaceOfColor? [mX mY isBlackPiece?]
+  let isLastEmptySpot? false
+  ask patch mX mY [
+    let pieces whitepieces
+    if isBlackPiece? [
+      set pieces blackpieces
+    ]
+    let neighbhorpieces pieces in-radius 1
+
+    foreach sort neighbhorpieces [ vNode ->
+      let nbs findNeighborsOfChess vNode
+      let availableChis findChis nbs
+      if 1 = length availableChis[
+        set isLastEmptySpot? true
+      ]
+    ]
+  ]
+  report isLastEmptySpot?
+end
+
 
 to-report isPatchEmpty? [mX mY]
   let emptyStatus? false
