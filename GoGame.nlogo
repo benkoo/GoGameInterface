@@ -170,6 +170,11 @@ to-report canDealHand? [x y chess_is_black?]
   let patchEmpty? true
   let isLastEmptySpot? false
 
+  let chess_color "white"
+  if (chess_is_black?)[
+    set chess_color "black"
+  ]
+
   ask patch x y [
 
     let whiteCount count whitepieces in-radius 1
@@ -231,11 +236,12 @@ to-report canDealHand? [x y chess_is_black?]
     ]
 
     if isSurrounded?[
-      user-message "The location is completely surrounded by enemy chess pieces"
+      user-message word "The location is completely surrounded by enemy chess pieces in " chess_color
     ]
 
     if isLastEmptySpot?[
-      user-message "The location is the last empty spot (chi) for the friendly pieces"
+
+      user-message word "The location is the last empty spot (chi) for the friendly " word chess_color " pieces"
     ]
   ][
     ;; if this is allowed to deal, check if this violates the ko condition
@@ -254,7 +260,8 @@ to searchForEnemyPieceToKill [mX mY is_black?]
   let chessList []
   let neighboringEnemyChessList []
   let emptySpots []
-  let koCount 0
+  let koCount 0 ; Keep track of number of kills
+  let deadChessList []
 
   show list mX mY
 
@@ -283,12 +290,16 @@ to searchForEnemyPieceToKill [mX mY is_black?]
       ;; user-message (word "Is surrounded by chess with " word emptyCount " chi." )
       ;; If the surrounded ememy chess only has one chi left, then send "die" message to all of them
       foreach connectedEnemies [ aChess ->
-        ask aChess [
-          set koCount 1 + koCount
-          set koX [xcor] of aChess
-          set koY [ycor] of aChess
-          die
+
+        if not member? aChess deadChessList [
+          ask aChess [
+            set koCount 1 + koCount
+            set koX [xcor] of aChess
+            set koY [ycor] of aChess
+            die
+          ]
         ]
+        set deadChessList lput aChess deadChessList
       ]
 
       ;;If koCount is not 1, then this is not a Ko.
@@ -311,6 +322,7 @@ to-report findNeighbors [ nodeList ]
   let aList nodeList
   let initialCount 0
   let endingCount length aList
+  let visitedNodeList []
 
   while [initialCount < length aList]
   [
