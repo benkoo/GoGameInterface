@@ -164,6 +164,7 @@ to dealOneHandofChess [myColor]
   ]
 end
 
+;; This function provides the overall logical structure to determine whether one may or may not deal hand.
 to-report canDealHand? [x y chess_is_black?]
 
   let isSurrounded? false
@@ -280,7 +281,7 @@ to searchForEnemyPieceToKill [mX mY is_black?]
   ]
 
   foreach neighboringEnemyChessList [ enemyChess ->
-    let connectedEnemies findNeighborsOfChess enemyChess
+    let connectedEnemies findNeighbors (list enemyChess)
 
     set emptySpots findChis connectedEnemies
     let emptyCount 0
@@ -311,10 +312,6 @@ to searchForEnemyPieceToKill [mX mY is_black?]
   ]
 
 
-end
-
-to-report findNeighborsOfChess [ aChess ]
-  report findNeighbors (list aChess)
 end
 
 ;A neighbor search function that identifies all chesspieces of same color that are connected
@@ -380,7 +377,7 @@ to-report isLastEmptySpaceOfColor? [mX mY isBlackPiece?]
     let neighbhorpieces pieces in-radius 1
 
     foreach sort neighbhorpieces [ vNode ->
-      let nbs findNeighborsOfChess vNode
+      let nbs findNeighbors (list vNode)
       let availableChis findChis nbs
       if 1 = length availableChis[
         set isLastEmptySpot? true
