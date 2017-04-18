@@ -1,4 +1,3 @@
-
 breed [emptyspaces emptyspace]
 breed [whitepieces whitepiece]
 breed [blackpieces blackpiece]
@@ -165,63 +164,37 @@ to-report canDealHand? [x y chess_is_black?]
   let isLastEmptySpot? false
 
   let chess_color "white"
-  if (chess_is_black?)[
-    set chess_color "black"
-  ]
+  let friendlyCount 0
+  let enemyCount 0
+  let emptyCount 0
+
+  let isLastEnemyEmptySpot? isLastEmptySpaceOfColor? x y true
+  let isLastFriendlyEmptySpot? isLastEmptySpaceOfColor? x y false
 
   ask patch x y [
+    set friendlyCount count whitepieces in-radius 1
+    set enemyCount count blackpieces in-radius 1
+    set emptyCount count emptyspaces in-radius 1
 
-    let whiteCount count whitepieces in-radius 1
-    let blackCount count blackpieces in-radius 1
-    let emptyCount count emptyspaces in-radius 1
-
-    let isLastBlackEmptySpot? isLastEmptySpaceOfColor? x y true
-    let isLastWhiteEmptySpot? isLastEmptySpaceOfColor? x y false
-
-    ;; Checks if this chess is to be placed in an isolated emptyspace
-    if (blackCount + whiteCount) = (emptyCount - 1) [
-
-      ;;Black completely surrounded by White
-      if (chess_is_black?) [
-        ;If its neighbor has at least one of the same color, it is OK
-        ifelse 0 < blackCount [
-          set isSurrounded? false
-          ;Find out if this is the last empty spot
-          set isLastEmptySpot? isLastBlackEmptySpot?
-        ][
-          ;Find out if this is the last empty spot of surrounding whitepieces
-          ifelse isLastWhiteEmptySpot?[
-            set isSurrounded? false ; Because as this chess is place in this location, the surrounding ones will die!
-          ][
-            set isSurrounded? true
-          ]
-        ]
-
-      ]
-
-      ;;White completely surrounded by Black
-      if (not chess_is_black?) [
-        ;If its neighbor has at least one of the same color, it is OK
-        ifelse 0 < whiteCount [
-          set isSurrounded? false
-          ;Find out if this is the last empty spot
-          set isLastEmptySpot? isLastWhiteEmptySpot?
-        ][
-          ;Find out if this is the last empty spot of surrounding blackpieces
-          ifelse isLastBlackEmptySpot?[
-            set isSurrounded? false ; Because as this chess is place in this location, the surrounding ones will die!
-          ][
-            set isSurrounded? true
-          ]
-        ]
-      ]
+    if (chess_is_black?)[
+      set chess_color "black"
+      set isLastEnemyEmptySpot? isLastEmptySpaceOfColor? x y false
+      set isLastFriendlyEmptySpot? isLastEmptySpaceOfColor? x y true
+      set friendlyCount count blackpieces in-radius 1
+      set enemyCount count whitepieces in-radius 1
     ]
 
+    ;See if this is isolated? The following expression evaluates whether it is an isolated empty space
+    if (friendlyCount + enemyCount) = (emptyCount - 1)[
+      if (0 = friendlyCount)[
+        set isLastFriendlyEmptySpot? true
+      ]
+    ]
   ]
 
   let okToDeal true
   set patchEmpty? (isPatchEmpty? x y)
-  set okToDeal patchEmpty? and (not isSurrounded?) and (not isLastEmptySpot?)
+  set okToDeal patchEmpty? and (not isLastFriendlyEmptySpot?) or isLastEnemyEmptySpot?
 
 
   ifelse not okToDeal [
@@ -229,11 +202,7 @@ to-report canDealHand? [x y chess_is_black?]
       user-message word "The location " word x word ", " word y " is occupied!"
     ]
 
-    if isSurrounded?[
-      user-message word "The location is completely surrounded by enemy chess pieces in " chess_color
-    ]
-
-    if isLastEmptySpot?[
+    if isLastFriendlyEmptySpot?[
 
       user-message word "The location is the last empty spot (chi) for the friendly " word chess_color " pieces"
     ]
@@ -362,11 +331,13 @@ end
 ;; return a boolean value indicating whether
 to-report isLastEmptySpaceOfColor? [mX mY isBlackPiece?]
   let isLastEmptySpot? false
+
   ask patch mX mY [
     let pieces whitepieces
     if isBlackPiece? [
       set pieces blackpieces
     ]
+
     let neighbhorpieces pieces in-radius 1
 
     foreach sort neighbhorpieces [ vNode ->
