@@ -1,5 +1,3 @@
-;;Include the "sound" extension for sound effects.
-extensions [sound]
 
 breed [emptyspaces emptyspace]
 breed [whitepieces whitepiece]
@@ -78,7 +76,7 @@ to mouse-manager
           set koY -1
 
           ;; Before placing the chess piece on board, clear the board with dying enemy chess pieces.
-          searchForEnemyPieceToKill mX mY isBlack?
+          searchForEnemyPiecesToKill mX mY isBlack?
 
           ifelse isBlack? [
             create-blackpieces 1 [
@@ -102,11 +100,6 @@ to mouse-manager
   ] ;if mouse-clicked? [2]
 end
 
-;;This procedure is to create a function for sound effects
-to bonk!
-  sound:play-drum "ACOUSTIC SNARE" instrument
-  ;sound:play-note "TRUMPET" instrument 64 2
-end
 
 to showXY
   ;setxy mouse-xcor mouse-ycor
@@ -256,12 +249,10 @@ to-report canDealHand? [x y chess_is_black?]
 end
 
 ;; This procedure checks if the selected location is completely surrounded by Enemy or not
-to searchForEnemyPieceToKill [mX mY is_black?]
+to searchForEnemyPiecesToKill [mX mY is_black?]
 
   let chessList []
   let neighboringEnemyChessList []
-  let emptySpots []
-  let koCount 0 ; Keep track of number of kills
   let deadChessList []
 
   show list mX mY
@@ -272,6 +263,7 @@ to searchForEnemyPieceToKill [mX mY is_black?]
     set chessList blackpieces  ;; For white being placed at mX mY, search for blackpieces
   ]
 
+  ;;This code block will create neighboringEnemyChessList that contains the opponents' immeidately adjaceny chess pieces
   ask patch mX mY [
     ask chessList in-radius 1 [
       if not member? self neighboringEnemyChessList  [
@@ -280,37 +272,41 @@ to searchForEnemyPieceToKill [mX mY is_black?]
     ]
   ]
 
+  ;;Go through each immediately adjaceny enemy chess piece, and see if it is eligible for kill.
   foreach neighboringEnemyChessList [ enemyChess ->
+
+    ;;Find all connected enemy pieces starting from the chosen "enemyChess"
     let connectedEnemies findNeighbors (list enemyChess)
 
-    set emptySpots findChis connectedEnemies
-    let emptyCount 0
-    set emptyCount length emptySpots
+    ;;Evaluate to know how many remaining chi that this branch of chess has
+    let emptySpots findChis connectedEnemies
+    let emptyCount length emptySpots ;;This is set to a large number, so that we know that it is not 1 or 0
 
+    ;;If the only available chi (emptyCount = 1) is the empty spot to be occupied, we can start constructing a deadChessList
     if (emptyCount = 1)[
       ;; user-message (word "Is surrounded by chess with " word emptyCount " chi." )
       ;; If the surrounded ememy chess only has one chi left, then send "die" message to all of them
       foreach connectedEnemies [ aChess ->
-
         if not member? aChess deadChessList [
-          ask aChess [
-            set koCount 1 + koCount
-            set koX [xcor] of aChess
-            set koY [ycor] of aChess
-            die
-          ]
+          set deadChessList lput aChess deadChessList
         ]
-        set deadChessList lput aChess deadChessList
-      ]
-
-      ;;If koCount is not 1, then this is not a Ko.
-      if koCount != 1 [
-        set koX -1
-        set koY -1
       ]
     ]
   ]
 
+  ;;If only one enemy chess piece is found for kill, then, mark this to be the koX and koY location.
+  if 1 = length deadChessList [
+    let aChess last deadChessList
+    set koX [xcor] of aChess
+    set koY [ycor] of aChess
+  ]
+
+  ;;After marking koX and koY location if any, then, kill all the enemy chess pieces that are eligible for removal.
+  foreach deadChessList [ aChess ->
+    ask aChess [
+      die
+    ]
+  ]
 
 end
 
@@ -318,8 +314,6 @@ end
 to-report findNeighbors [ nodeList ]
   let aList nodeList
   let initialCount 0
-  let endingCount length aList
-  let visitedNodeList []
 
   while [initialCount < length aList]
   [
@@ -333,7 +327,6 @@ to-report findNeighbors [ nodeList ]
         ]
       ]
     ]
-    set endingCount length aList
   ]
 
   ;user-message (word "There are " length aList " chess pieces.")
