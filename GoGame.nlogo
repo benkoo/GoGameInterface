@@ -1,4 +1,4 @@
-breed [emptyspaces emptyspace]
+breed [boardspaces boardspace]
 breed [whitepieces whitepiece]
 breed [blackpieces blackpiece]
 
@@ -37,7 +37,7 @@ end
 ;; Draw XY Grid
 to drawXYGrid
   ask patches [
-    sprout-emptyspaces 1 [
+    sprout-boardspaces 1 [
       set color white
       set shape "circle"
       set size 0
@@ -57,6 +57,9 @@ end
 
 
 to mouse-manager
+  ;; A list to keep track of potential kills
+  let deadChessList []
+
   ifelse mouse-down? [
     ;; The following code structure ensure that once mouse is clicked once, the following
     ;; activities are only executed once.
@@ -75,7 +78,21 @@ to mouse-manager
           set koY -1
 
           ;; Before placing the chess piece on board, clear the board with dying enemy chess pieces.
-          searchForEnemyPiecesToKill mX mY isBlack?
+          set deadChessList (findEnemyPiecesForKill mX mY isBlack?)
+
+          ;;If only one enemy chess piece is found for kill, then, mark this to be the koX and koY location.
+          if 1 = length deadChessList [
+            let aChess last deadChessList
+            set koX [xcor] of aChess
+            set koY [ycor] of aChess
+          ]
+
+          ;;After marking koX and koY location if any, then, kill all the enemy chess pieces that are eligible for removal.
+          foreach deadChessList [ aChess ->
+            ask aChess [
+              die
+            ]
+          ]
 
           ifelse isBlack? [
             create-blackpieces 1 [
@@ -130,7 +147,7 @@ to dealOneHandofChess [myColor]
 
   setxy mX mY
 
-  markNodeListInColor sort emptySpaces blue
+  markNodeListInColor sort boardspaces blue
 
   ifelse (myColor = white) [
     create-white-links-with other whitepieces in-radius 1 [
@@ -161,41 +178,47 @@ to-report canDealHand? [x y chess_is_black?]
 
   let isSurrounded? false
   let patchEmpty? true
-  let isLastEmptySpot? false
+  let hasEnemyToKill? false
+
 
   let chess_color "white"
   let friendlyCount 0
   let enemyCount 0
-  let emptyCount 0
+  let spaceCount 0
 
-  let isLastEnemyEmptySpot? isLastEmptySpaceOfColor? x y true
   let isLastFriendlyEmptySpot? isLastEmptySpaceOfColor? x y false
 
   ask patch x y [
+    set spaceCount count boardspaces in-radius 1
+
     set friendlyCount count whitepieces in-radius 1
     set enemyCount count blackpieces in-radius 1
-    set emptyCount count emptyspaces in-radius 1
 
     if (chess_is_black?)[
       set chess_color "black"
-      set isLastEnemyEmptySpot? isLastEmptySpaceOfColor? x y false
-      set isLastFriendlyEmptySpot? isLastEmptySpaceOfColor? x y true
       set friendlyCount count blackpieces in-radius 1
       set enemyCount count whitepieces in-radius 1
-    ]
-
-    ;See if this is isolated? The following expression evaluates whether it is an isolated empty space
-    if (friendlyCount + enemyCount) = (emptyCount - 1)[
-      if (0 = friendlyCount)[
-        set isLastFriendlyEmptySpot? true
-      ]
+      set isLastFriendlyEmptySpot? isLastEmptySpaceOfColor? x y true
     ]
   ]
 
+  if isLastFriendlyEmptySpot?[
+    ;; Check if this spot has more non-occupied spaces
+    if (spaceCount - (friendlyCount + enemyCount)) > 1[
+      set isLastFriendlyEmptySpot? false
+    ]
+
+    let piecesToBeKilled findEnemyPiecesForKill x y chess_is_black?
+    if (0 < length piecesToBeKilled ) [
+      set hasEnemyToKill? true
+    ]
+  ]
+
+
+
   let okToDeal true
   set patchEmpty? (isPatchEmpty? x y)
-  set okToDeal patchEmpty? and (not isLastFriendlyEmptySpot?) or isLastEnemyEmptySpot?
-
+  set okToDeal patchEmpty? and (not isLastFriendlyEmptySpot?) or hasEnemyToKill?
 
   ifelse not okToDeal [
     if not patchEmpty?[
@@ -203,14 +226,16 @@ to-report canDealHand? [x y chess_is_black?]
     ]
 
     if isLastFriendlyEmptySpot?[
-
       user-message word "The location is the last empty spot (chi) for the friendly " word chess_color " pieces"
     ]
   ][
     ;; if this is allowed to deal, check if this violates the ko condition
     if (koX = x) and (koY = y)[
-      set okToDeal false
-      user-message word "This piece place on " word x word ", " word y " is a violation of the Ko rule."
+      let piecesToBeKilled findEnemyPiecesForKill x y chess_is_black?
+      if (1 = length piecesToBeKilled)[
+        set okToDeal false
+        user-message word "This piece place on " word x word ", " word y " is a violation of the Ko rule."
+      ]
     ]
   ]
 
@@ -218,7 +243,7 @@ to-report canDealHand? [x y chess_is_black?]
 end
 
 ;; This procedure checks if the selected location is completely surrounded by Enemy or not
-to searchForEnemyPiecesToKill [mX mY is_black?]
+to-report findEnemyPiecesForKill [mX mY is_black?]
 
   let chessList []
   let neighboringEnemyChessList []
@@ -249,11 +274,11 @@ to searchForEnemyPiecesToKill [mX mY is_black?]
 
     ;;Evaluate to know how many remaining chi that this branch of chess has
     let emptySpots findChis connectedEnemies
-    let emptyCount length emptySpots ;;This is set to a large number, so that we know that it is not 1 or 0
+    let spaceCount length emptySpots ;;This is set to a large number, so that we know that it is not 1 or 0
 
-    ;;If the only available chi (emptyCount = 1) is the empty spot to be occupied, we can start constructing a deadChessList
-    if (emptyCount = 1)[
-      ;; user-message (word "Is surrounded by chess with " word emptyCount " chi." )
+    ;;If the only available chi (spaceCount = 1) is the empty spot to be occupied, we can start constructing a deadChessList
+    if (spaceCount = 1)[
+      ;; user-message (word "Is surrounded by chess with " word spaceCount " chi." )
       ;; If the surrounded ememy chess only has one chi left, then send "die" message to all of them
       foreach connectedEnemies [ aChess ->
         if not member? aChess deadChessList [
@@ -263,19 +288,7 @@ to searchForEnemyPiecesToKill [mX mY is_black?]
     ]
   ]
 
-  ;;If only one enemy chess piece is found for kill, then, mark this to be the koX and koY location.
-  if 1 = length deadChessList [
-    let aChess last deadChessList
-    set koX [xcor] of aChess
-    set koY [ycor] of aChess
-  ]
-
-  ;;After marking koX and koY location if any, then, kill all the enemy chess pieces that are eligible for removal.
-  foreach deadChessList [ aChess ->
-    ask aChess [
-      die
-    ]
-  ]
+  report deadChessList
 
 end
 
@@ -297,31 +310,34 @@ to-report findNeighbors [ nodeList ]
       ]
     ]
   ]
-
-  ;user-message (word "There are " length aList " chess pieces.")
   report aList
 
 end
 
 ;; Given a list of black or white pieces,
-;; find all the emptyspaces next to them
+;; find all the boardspaces next to them
 ;; and return them in a list.
 to-report findChis [ nodeList ]
   let newList []
 
   foreach nodeList [ vNode ->
     ask vNode[
-      ask emptyspaces in-radius 1 [
+      ask boardspaces in-radius 1 [
           if not member? self newList  [
-            if isEmpty? self [ ;; if not [occupied?] of self [
-              set newList lput self newList
+            ;;Check if aSpace is an instance of breed boardspaces
+            ifelse is-boardspace? self [
+              let mX ([xcor] of self)
+              let mY ([ycor] of self)
+              if isPatchEmpty? mX mY[
+                set newList lput self newList
+              ]
+            ][
+              user-message (word "This is not an instance of boardspace" self)
             ]
           ]
       ]
    ]
   ]
-
-  markNodeListInColor newList yellow
 
   report newList
 
@@ -333,19 +349,29 @@ to-report isLastEmptySpaceOfColor? [mX mY isBlackPiece?]
   let isLastEmptySpot? false
 
   ask patch mX mY [
-    let pieces whitepieces
+
+    let spaceCount count boardspaces in-radius 1
+    let friendlyCount count whitepieces in-radius 1
+    let enemyCount count blackpieces in-radius 1
+
+    let friendlyPieces whitepieces
     if isBlackPiece? [
-      set pieces blackpieces
+      set friendlyPieces blackpieces
+      set friendlyCount count blackpieces in-radius 1
+      set enemyCount count whitepieces in-radius 1
     ]
 
-    let neighbhorpieces pieces in-radius 1
+    let neighbhorpieces friendlyPieces in-radius 1
 
-    foreach sort neighbhorpieces [ vNode ->
-      let nbs findNeighbors (list vNode)
-      let availableChis findChis nbs
-      if 1 = length availableChis[
-        set isLastEmptySpot? true
-      ]
+    let nbs findNeighbors sort neighbhorpieces
+    let availableChis findChis nbs
+    markNodeListInColor availableChis cyan
+    if 1 >= length availableChis[
+      set isLastEmptySpot? true
+    ]
+
+    if (enemyCount >= (spaceCount - 1))[
+      set isLastEmptySpot? true
     ]
   ]
   report isLastEmptySpot?
@@ -355,7 +381,7 @@ end
 to-report isPatchEmpty? [mX mY]
   let emptyStatus? false
 
-  ;;Check if anEmptySpace is an instance of breed emptyspaces
+  ;;Check if anEmptySpace is an instance of breed boardspaces
 
     let totalCount 0
     ask patch mX mY [
@@ -378,21 +404,6 @@ to-report isPatchEmpty? [mX mY]
 
 end
 
-;;Determine if the given emptyspace is empty or not
-to-report isEmpty? [anEmptySpace]
-  let emptyStatus? false
-
-  ;;Check if anEmptySpace is an instance of breed emptyspaces
-  ifelse is-emptyspace? anEmptySpace [
-    let mX ([xcor] of anEmptySpace)
-    let mY ([ycor] of anEmptySpace)
-    set emptyStatus? isPatchEmpty? mX mY
-  ][
-    user-message (word "This is not an instance of emptyspace" anEmptySpace)
-  ]
-
-  report emptyStatus?
-end
 
 to markNodeListInColor [turtleList aColor]
   foreach turtleList [anObj ->
