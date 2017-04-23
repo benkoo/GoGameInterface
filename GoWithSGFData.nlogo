@@ -1,5 +1,3 @@
-extensions [table]
-
 breed [boardspaces boardspace]
 breed [whitepieces whitepiece]
 breed [blackpieces blackpiece]
@@ -12,7 +10,7 @@ undirected-link-breed [white-links white-link]
 undirected-link-breed [black-links black-link]
 
 ;;Declare global variables
-globals [mouse-clicked? isBlack? num_lines currentNumberOfLinkedPieces koX koY]
+globals [mouse-clicked? isBlack? boardSize currentNumberOfLinkedPieces koX koY GAME_FILE_NAME move_list]
 
 ;; When using HubNet features, the startup procedure must be delcared and run the hubnet-reset instruction
 ;to startup
@@ -23,11 +21,16 @@ to setup
   clear-all
   reset-ticks
   set isBlack? true
-  set num_lines 19 ;; Set the chess board to have num_lines * num_lines lines
-  resize-world 0 num_lines 0 num_lines
+  if (boardSize <= 0)[
+    set boardSize 19 ;; Set the chess board to have boardSize * boardSize lines
+  ]
+  resize-world 0 boardSize 0 boardSize
   set currentNumberOfLinkedPieces 0
   set koX -1
   set koY -1
+
+  ;;Clear the move_list
+  set move_list []
 
   ;import-drawing "img/wood.jpg"
 
@@ -96,17 +99,27 @@ to mouse-manager
             ]
           ]
 
+          let chessSymbol "W"
           ifelse isBlack? [
+            set chessSymbol "B"
             create-blackpieces 1 [
               dealOneHandofChess red
             ]
             set isBlack? false
           ][
+            set chessSymbol "W"
             create-whitepieces 1 [
               dealOneHandofChess white
             ]
             set isBlack? true
           ]
+
+          let moveTriple []
+          set moveTriple lput chessSymbol moveTriple
+          set moveTriple lput mX moveTriple
+          set moveTriple lput mY moveTriple
+          set move_list lput moveTriple move_list
+
       ]; if canDealHand?[]
 
 
@@ -174,6 +187,45 @@ to dealOneHandofChess [myColor]
     ]
   ]
 end
+
+
+;;This procedure is to set up the location and links with other pieces
+to placeOneChessPiece [mX mY myColor]
+
+  ;Change the shape and size of the chess piece
+  set shape "circle"
+  set size 0.5
+  set color myColor
+  setxy mX mY
+
+  markNodeListInColor sort boardspaces blue
+
+  ifelse (myColor = white) [
+    create-white-links-with other whitepieces in-radius 1 [
+      ;set color blue
+      set thickness 0.2
+    ]
+
+    ask one-of whitepieces in-radius 0 [
+        ;ask link-neighbors [ set color green ]
+        set currentNumberOfLinkedPieces count link-neighbors
+    ]
+
+  ][
+    create-black-links-with other blackpieces in-radius 1 [
+      ;set color yellow
+      set thickness 0.2
+    ]
+
+    ask one-of blackpieces in-radius 0 [
+        ;ask link-neighbors [ set color cyan ]
+        set currentNumberOfLinkedPieces count link-neighbors
+    ]
+  ]
+end
+
+
+
 
 ;; This function provides the overall logical structure to determine whether one may or may not deal hand.
 to-report canDealHand? [x y chess_is_black?]
@@ -428,6 +480,168 @@ end
 to-report currentlyLinkedNodes
   report currentNumberOfLinkedPieces
 end
+
+;; This procedure loads an SGF formated game data from a file.
+to load-game-data
+
+  ;;first clear the board
+  setup
+
+  set GAME_FILE_NAME user-file
+
+  ;; Must make usre that textline-data is initialized to a list
+  let textline-data []
+
+  ;; We check to make sure the file exists first
+  ifelse ( file-exists? GAME_FILE_NAME )
+  [
+    ;; This opens the file, so we can use it.
+    file-open GAME_FILE_NAME
+
+    ;; Read in all the data in the file
+    while [ not file-at-end? ]
+    [
+      set textline-data lput file-read-line textline-data
+    ]
+
+    let i 0
+    let move-data []
+    set move_list []
+    while [i < length textline-data] [
+      let aStr item i textline-data
+
+      if 1 < length aStr [
+
+        if (substring aStr 0 5 = "(;SZ[")[
+          let sizeStr substring aStr 5 7
+          ifelse last sizeStr = "]"[
+            set boardSize but-last sizeStr
+          ][
+            set boardSize sizeStr
+          ]
+          print word "Board Size: " boardSize
+        ]
+
+        if (substring aStr 0 3 = ";B[") or (substring aStr 0 3 = ";W[")[
+          while [6 <= length aStr and ((substring aStr 0 3 = ";B[") or (substring aStr 0 3 = ";W["))][
+            let myMove substring aStr 1 6
+            set move-data lput myMove move-data
+            set move_list lput interpretMove myMove move_list
+            set aStr substring aStr 6 length aStr
+          ]
+       ]
+      ]
+    set i (i + 1)
+    ]
+
+    ;; Done reading in patch information.  Close the file.
+    file-close
+  ]
+  [ user-message word "There is no " word GAME_FILE_NAME " file in current directory!" ]
+
+  foreach move_list [ aMove ->
+    ifelse isBlack? [
+            create-blackpieces 1 [
+              placeOneChessPiece item 1 aMove item 2 aMove red
+            ]
+            set isBlack? false
+          ][
+            create-whitepieces 1 [
+              placeOneChessPiece item 1 aMove item 2 aMove white
+            ]
+            set isBlack? true
+          ]
+  ]
+end
+
+;; This procedure does the same thing as the above one, except it lets the user choose
+;; the file to load from.  Note that we need to check that it isn't false.  This because
+;; it will return false if the user cancels the file dialog.  There is currently only
+;; one file to load from, but you can create your own using the function save-patch-data
+;; near the bottom which saves all the current patches into a file.
+to save-game-data
+  let MOVE_COUNT 12
+  let file user-new-file
+
+  if ( file != false )
+  [
+
+    file-open file
+    file-print word "(;SZ[" word boardSize "]"
+
+    let a_line ""
+    let i 0
+    while [i < length move_list] [
+      let aMove item i move_list
+      set i i + 1
+      let myColor item 0 aMove
+      let x getChar item 1 aMove
+      let y getChar item 2 aMove
+
+      set a_line word a_line word ";" word myColor word "[" word x word y "]"
+
+      if (i >= MOVE_COUNT) and (i mod MOVE_COUNT = 0) [
+        file-print a_line
+        set a_line ""
+      ]
+    ]
+
+    if (i mod MOVE_COUNT > 0) [file-print a_line]
+
+    file-print ")"
+    user-message "File saving complete!"
+    file-close
+  ]
+end
+
+;; This procedure will use the loaded in patch data to color the patches.
+;; The list is a list of three-tuples where the first item is the pxcor, the
+;; second is the pycor, and the third is pcolor. Ex. [ [ 0 0 5 ] [ 1 34 26 ] ... ]
+to show-game-data
+  print move_list
+end
+
+to-report interpretMove [aString]
+  let moveTriple []
+  let chessColor first aString
+  let xCoordStr substring aString 2 3
+  let yCoordStr substring aString 3 4
+
+  let xCoord getNum xCoordStr
+  let yCoord getNum yCoordStr
+
+  set moveTriple lput chessColor moveTriple
+  set moveTriple lput xCoord moveTriple
+  set moveTriple lput yCoord moveTriple
+
+  report moveTriple
+
+end
+
+to-report getNum [aChar]
+  let num -1
+  let CHARACTERSET "abcdefghijklmnopqrstuvwxyz"
+  if (length aChar = 1)[
+    let i 0
+    while [i <= length CHARACTERSET ][
+      if (item i CHARACTERSET = aChar)[
+        set num i
+        set i length CHARACTERSET
+      ]
+      set i i + 1
+    ]
+  ]
+  report num
+end
+
+to-report getChar [aNum]
+  let char "\n"
+  let CHARACTERSET "abcdefghijklmnopqrstuvwxyz"
+  if (aNum < 26)[
+    set char item aNum CHARACTERSET
+  ]
+  report char
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 210
@@ -522,6 +736,57 @@ currentlyLinkedNodes
 17
 1
 11
+
+BUTTON
+39
+435
+177
+468
+NIL
+show-game-data
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+43
+389
+175
+422
+NIL
+load-game-data\n
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+BUTTON
+42
+479
+175
+512
+NIL
+save-game-data
+NIL
+1
+T
+OBSERVER
+NIL
+S
+NIL
+NIL
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
