@@ -1,24 +1,18 @@
-extensions [table]
-globals [A_FILE_NAME textline-data move-data move_list DICT REV_DICT boardSize]
+globals [GAME_FILE_NAME move_list boardSize]
 
-;; This procedure loads in patch data from a file.  The format of the file is: pxcor
-;; pycor pcolor.  You can view the file by opening the file File IO Patch Data.txt
-;; using a simple text editor.  Note that it automatically loads the file "File IO
-;; Patch Data.txt". To have the user choose their own file, see load-own-patch-data.
+;; This procedure loads an SGF formated game data from a file.
 to load-game-data
 
-  set A_FILE_NAME user-file
-
-  initializeDICT
+  set GAME_FILE_NAME user-file
 
   ;; Must make usre that textline-data is initialized to a list
-  set textline-data []
+  let textline-data []
 
   ;; We check to make sure the file exists first
-  ifelse ( file-exists? A_FILE_NAME )
+  ifelse ( file-exists? GAME_FILE_NAME )
   [
     ;; This opens the file, so we can use it.
-    file-open A_FILE_NAME
+    file-open GAME_FILE_NAME
 
     ;; Read in all the data in the file
     while [ not file-at-end? ]
@@ -26,14 +20,42 @@ to load-game-data
       set textline-data lput file-read-line textline-data
     ]
 
-    process-move-data
+    let i 0
+    let move-data []
+    set move_list []
+    while [i < length textline-data] [
+      let aStr item i textline-data
+
+      if 1 < length aStr [
+
+        if (substring aStr 0 5 = "(;SZ[")[
+          let sizeStr substring aStr 5 7
+          ifelse last sizeStr = "]"[
+            set boardSize but-last sizeStr
+          ][
+            set boardSize sizeStr
+          ]
+          print word "Board Size: " boardSize
+        ]
+
+        if (substring aStr 0 3 = ";B[") or (substring aStr 0 3 = ";W[")[
+          while [6 <= length aStr and ((substring aStr 0 3 = ";B[") or (substring aStr 0 3 = ";W["))][
+            let myMove substring aStr 1 6
+            set move-data lput myMove move-data
+            set move_list lput interpretMove myMove move_list
+            set aStr substring aStr 6 length aStr
+          ]
+       ]
+      ]
+    set i (i + 1)
+    ]
 
     user-message "File loading complete!"
 
     ;; Done reading in patch information.  Close the file.
     file-close
   ]
-  [ user-message word "There is no " word A_FILE_NAME " file in current directory!" ]
+  [ user-message word "There is no " word GAME_FILE_NAME " file in current directory!" ]
 end
 
 ;; This procedure does the same thing as the above one, except it lets the user choose
@@ -57,8 +79,8 @@ to save-game-data
       let aMove item i move_list
       set i i + 1
       let myColor item 0 aMove
-      let x table:get REV_DICT item 1 aMove
-      let y table:get REV_DICT item 2 aMove
+      let x getChar item 1 aMove
+      let y getChar item 2 aMove
 
       set a_line word a_line word ";" word myColor word "[" word x word y "]"
 
@@ -83,47 +105,14 @@ to show-game-data
   print move_list
 end
 
-to process-move-data
-  let i 0
-  set move-data []
-  set move_list []
-  while [i < length textline-data] [
-    let aStr item i textline-data
-
-    if 1 < length aStr [
-
-      if (substring aStr 0 5 = "(;SZ[")[
-        let sizeStr substring aStr 5 7
-        ifelse last sizeStr = "]"[
-          set boardSize but-last sizeStr
-        ][
-          set boardSize sizeStr
-        ]
-        print word "Board Size: " boardSize
-      ]
-
-      if (substring aStr 0 3 = ";B[") or (substring aStr 0 3 = ";W[")[
-        while [6 <= length aStr and ((substring aStr 0 3 = ";B[") or (substring aStr 0 3 = ";W["))][
-          let myMove substring aStr 1 6
-          set move-data lput myMove move-data
-          set move_list lput interpretMove myMove move_list
-          set aStr substring aStr 6 length aStr
-        ]
-
-      ]
-    ]
-    set i (i + 1)
-  ]
-end
-
 to-report interpretMove [aString]
   let moveTriple []
   let chessColor first aString
   let xCoordStr substring aString 2 3
   let yCoordStr substring aString 3 4
 
-  let xCoord table:get DICT xCoordStr
-  let yCoord table:get DICT yCoordStr
+  let xCoord getNum xCoordStr
+  let yCoord getNum yCoordStr
 
   set moveTriple lput chessColor moveTriple
   set moveTriple lput xCoord moveTriple
@@ -133,62 +122,29 @@ to-report interpretMove [aString]
 
 end
 
-to initializeDICT
-  set DICT table:make
-  table:put DICT "a" 0
-  table:put DICT "b" 1
-  table:put DICT "c" 2
-  table:put DICT "d" 3
-  table:put DICT "e" 4
-  table:put DICT "f" 5
-  table:put DICT "g" 6
-  table:put DICT "h" 7
-  table:put DICT "i" 8
-  table:put DICT "j" 9
-  table:put DICT "k" 10
-  table:put DICT "l" 11
-  table:put DICT "m" 12
-  table:put DICT "n" 13
-  table:put DICT "o" 14
-  table:put DICT "p" 15
-  table:put DICT "q" 16
-  table:put DICT "r" 17
-  table:put DICT "s" 18
-  table:put DICT "t" 19
-  table:put DICT "u" 20
-  table:put DICT "v" 21
-  table:put DICT "w" 22
-  table:put DICT "x" 23
-  table:put DICT "y" 24
-  table:put DICT "z" 25
+to-report getNum [aChar]
+  let num -1
+  let CHARACTERSET "abcdefghijklmnopqrstuvwxyz"
+  if (length aChar = 1)[
+    let i 0
+    while [i <= length CHARACTERSET ][
+      if (item i CHARACTERSET = aChar)[
+        set num i
+        set i length CHARACTERSET
+      ]
+      set i i + 1
+    ]
+  ]
+  report num
+end
 
-  set REV_DICT table:make
-  table:put REV_DICT 0 "a"
-  table:put REV_DICT 1 "b"
-  table:put REV_DICT 2 "c"
-  table:put REV_DICT 3 "d"
-  table:put REV_DICT 4 "e"
-  table:put REV_DICT 5 "f"
-  table:put REV_DICT 6 "g"
-  table:put REV_DICT 7 "h"
-  table:put REV_DICT 8 "i"
-  table:put REV_DICT 9 "j"
-  table:put REV_DICT 10 "k"
-  table:put REV_DICT 11 "l"
-  table:put REV_DICT 12 "m"
-  table:put REV_DICT 13 "n"
-  table:put REV_DICT 14 "o"
-  table:put REV_DICT 15 "p"
-  table:put REV_DICT 16 "q"
-  table:put REV_DICT 17 "r"
-  table:put REV_DICT 18 "s"
-  table:put REV_DICT 19 "t"
-  table:put REV_DICT 20 "u"
-  table:put REV_DICT 21 "v"
-  table:put REV_DICT 22 "w"
-  table:put REV_DICT 23 "x"
-  table:put REV_DICT 24 "y"
-  table:put REV_DICT 25 "z"
+to-report getChar [aNum]
+  let char "\n"
+  let CHARACTERSET "abcdefghijklmnopqrstuvwxyz"
+  if (aNum < 26)[
+    set char item aNum CHARACTERSET
+  ]
+  report char
 end
 
 

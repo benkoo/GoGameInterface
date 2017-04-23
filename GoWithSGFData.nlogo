@@ -1,3 +1,5 @@
+extensions [table]
+
 breed [boardspaces boardspace]
 breed [whitepieces whitepiece]
 breed [blackpieces blackpiece]
@@ -489,10 +491,10 @@ NIL
 1
 
 MONITOR
-25
-355
-145
-400
+782
+23
+902
+68
 Number of Blacks
 numBlacks
 17
@@ -500,10 +502,10 @@ numBlacks
 11
 
 MONITOR
-23
-416
-146
-461
+782
+497
+905
+542
 Number of Whites
 numWhites
 17
