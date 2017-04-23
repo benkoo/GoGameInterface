@@ -547,7 +547,7 @@ The Go game should allow players to use mouse cursors to play black and white pi
 
 ## HOW TO USE IT
 
-Ideally, one should use two computers to play Go. The setup would need users to use HubNet infrastructure's Client Interface. 
+Curently, this system requires both players to use the same computer (usually the same mouse or trackpad), to play a game. As it adds HubNet features, it will allow multiple users to play over the network. 
 
 ## THINGS TO NOTICE
 
@@ -555,15 +555,15 @@ This program shows you how to leverage the notion of Patches, Links, and Turtle 
 
 ## THINGS TO TRY
 
-We also allow users to change certain configurations, including the chiming sound when a chess piece is placed on the board.
+The goal of this program is to serve as a basis for increasingly more flexible usage of the same code base. That means, this code can be incrementally optimized to handle other use case for Go or Black-White chess games. Moreover, it should be able to be used as a visualization tool for historical games.
 
 ## EXTENDING THE MODEL
 
-We plan to integrate the Go Chess Playing algorithm as a part of this system. This must be integrated with some external programs, such as Python or Mathematica.
+We plan to integrate the Go Chess Playing algorithm as a part of this system. This must be integrated with some external programs, such as Python or Mathematica. Currently, we know that it is possible to integrate this NetLogo implementation in a static HTML page with JavaScript as embedded NetLogo run time. We plan to add a network module to enable the communication of two or more machines to interactively play using a Browser as the common delivery mechanism.
 
 ## NETLOGO FEATURES
 
-(interesting or unusual features of NetLogo that the model uses, particularly in the Code tab; or where workarounds were needed for missing features)
+NetLogo is a Spatial Temporal Programming language, that means, its agent structures are designed to enable multiple discrete agents, interacting in patch-based environments. This kind of programming features is particularly conducive to the Go game. Therefore, implementing or studying the code for implementing Go game is an ideal starting point to learn NetLogo.
 
 ## RELATED MODELS
 
