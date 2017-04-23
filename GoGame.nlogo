@@ -124,7 +124,7 @@ to showXY
   ;show word mX word "," mY
   ask patch mX mY [
     set pcolor blue
-    wait 0.1
+    ;wait 0.1
     set pcolor black
     ask whitepieces in-radius 0 [
       set pcolor yellow
