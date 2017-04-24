@@ -136,7 +136,7 @@ to showXY
   ;setxy mouse-xcor mouse-ycor
   let mX (round mouse-xcor)
   let mY (round mouse-ycor)
-  ;show word mX word "," mY
+
   ask patch mX mY [
     set pcolor blue
     ;wait 0.1
@@ -302,8 +302,6 @@ to-report findEnemyPiecesForKill [mX mY is_black?]
   let chessList []
   let neighboringEnemyChessList []
   let deadChessList []
-
-  show list mX mY
 
   ifelse is_black? [
     set chessList whitepieces  ;; For black being placed at mX mY, search for whitepieces
@@ -815,15 +813,15 @@ We plan to integrate the Go Chess Playing algorithm as a part of this system. Th
 
 ## NETLOGO FEATURES
 
-NetLogo is a Spatial Temporal Programming language, that means, its agent structures are designed to enable multiple discrete agents, interacting in patch-based environments. This kind of programming features is particularly conducive to the Go game. Therefore, implementing or studying the code for implementing Go game is an ideal starting point to learn NetLogo.
+This project also uses the file-open, file-print primitives, so that one can load existing SFG game data format and write in that format. It also implemented a set of character conversion functions, so that it can translate the location from character-based notation to x,y coordinate system and back. This implementation intentionally avoid using the "table" extension of NetLogo, because it will require additional dependency.
 
 ## RELATED MODELS
 
-(models in the NetLogo Models Library and elsewhere which are of related interest)
+The next step is to use this model to implement a HubNet version. Stay tuned.
 
 ## CREDITS AND REFERENCES
 
-(a reference to the model's URL on the web if it has one, as well as any other necessary credits, citations, and links)
+This model is created by Ben Koo of Tsinghua University iCenter during the development of the course: System Design in Computational Thinking. A group of elementary school students, their moms, and high school students are also involved in learning from this example.
 @#$#@#$#@
 default
 true
