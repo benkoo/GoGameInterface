@@ -56,12 +56,8 @@ to drawXYGrid
   ]
 end
 
+
 to go
-  mouse-manager
-end
-
-
-to mouse-manager
   ;; A list to keep track of potential kills
   let deadChessList []
 
