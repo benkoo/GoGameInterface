@@ -1,6 +1,6 @@
-;; create a breed of turtles that the students control through the clients
-;; there will be one student turtle for each client.
-breed [ students student ]
+;; create a breed of turtles that the players control through the clients
+;; there will be one player for each client.
+breed [players player]
 breed [boardspaces boardspace]
 breed [whitepieces whitepiece]
 breed [blackpieces blackpiece]
@@ -12,20 +12,22 @@ undirected-link-breed [white-links white-link]
 undirected-link-breed [black-links black-link]
 
 
-globals [mouse-clicked? isBlack? num_lines currentNumberOfLinkedPieces koX koY]
+globals [player_list mouse-clicked? isBlack? num_lines currentNumberOfLinkedPieces koX koY]
 
-students-own
+players-own
 [
-  user-id   ;; students choose a user name when they log in whenever you receive a
-            ;; message from the student associated with this turtle hubnet-message-source
-            ;; will contain the user-id
-  step-size ;; you should have a turtle variable for every widget in the client interface that
-            ;; stores a value (sliders, choosers, and switches). You will receive a message
-            ;; from the client whenever the value changes. However, you will not be able to
-            ;; retrieve the value at will unless you store it in a variable on the server.
-  xLoc
+  user-id    ;; Player choose a user name when they log in whenever you receive a
+             ;; message from the player associated with this turtle hubnet-message-source
+             ;; will contain the user-id
 
-  yLoc
+  chesscolor ;; you should have a turtle variable for every widget in the client interface that
+             ;; stores a value (sliders, choosers, and switches). You will receive a message
+             ;; from the client whenever the value changes. However, you will not be able to
+             ;; retrieve the value at will unless you store it in a variable on the server.
+
+  xLoc       ;; The most recent chess placement location on the x axis.
+
+  yLoc       ;; The most recent chess placement location on the y axis.
 ]
 
 ;; the STARTUP procedure runs only once at the beginning of the model
@@ -38,14 +40,17 @@ to setup
   clear-patches
   clear-drawing
   clear-output
+
+  set player_list []
+  remove-player
   ;; during setup you do not want to kill all the turtles
   ;; (if you do you'll lose any information you have about the clients)
   ;; so reset any variables you want to default values, and let the clients
   ;; know about the change if the value appears anywhere in their interface.
-  ask students
+  ask players
   [
-    set step-size 1
-    hubnet-send user-id "step-size" step-size
+    set chesscolor "black"
+    hubnet-send user-id "chesscolor" chesscolor
   ]
   ;; calling reset-ticks enables the 'go' button
   reset-ticks
@@ -86,34 +91,32 @@ to go
   ;; get processed and responded to as fast as possible
   listen-clients
 
-  ask students [
+  ask players [
+    set size 0
 
   every 0.1[
-  if hubnet-message-tag = "View" [
-      ask patches with [pxcor = (round item 0 hubnet-message) and
-        pycor = (round item 1 hubnet-message)]
-      [set pcolor red]
-      show word "Player: " user-id
-  ]
-  ifelse mouse-down? [
-    let mX (round mouse-xcor)
-    let mY (round mouse-ycor)
-    hubnet-send user-id "xLoc" mX
-    hubnet-send user-id "yLoc" mY
-  ][
-    hubnet-send user-id "xLoc" -1
-    hubnet-send user-id "yLoc" -1
-  ]
-
-
-
+    if (hubnet-message-tag = "View") [
+          ask patches with [pxcor = (round item 0 hubnet-message) and
+                            pycor = (round item 1 hubnet-message)]
+          [
+             set pcolor red
+          ]
     ]
 
-  ]
-  tick
+    ifelse mouse-down? [
+      let mX (round mouse-xcor)
+      let mY (round mouse-ycor)
+      hubnet-send user-id "xLoc" mX
+      hubnet-send user-id "yLoc" mY
+    ][
+      hubnet-send user-id "xLoc" -1
+      hubnet-send user-id "yLoc" -1
+    ]
 
+ ]
 
-
+]
+tick ;; This tick operation is necessary to make the updates show up on "View".
 end
 
 ;;
@@ -128,32 +131,32 @@ to listen-clients
     ;; get the first message in the queue
     hubnet-fetch-message
     ifelse hubnet-enter-message? ;; when clients enter we get a special message
-    [ create-new-student ]
+    [ create-new-player ]
     [
-      ifelse hubnet-exit-message? ;; when clients exit we get a special message
-      [ remove-student ]
-      [ ask students with [user-id = hubnet-message-source]
-        [ execute-command hubnet-message-tag ] ;; otherwise the message means that the user has
-      ]                                        ;; done something in the interface hubnet-message-tag
-                                               ;; is the name of the widget that was changed
+      if hubnet-exit-message? ;; when clients exit we get a special message
+      [ remove-player ]
     ]
   ]
 end
 
-;; when a new user logs in create a student turtle
+;; when a new user logs in create a player turtle
 ;; this turtle will store any state on the client
 ;; values of sliders, etc.
-to create-new-student
-  create-students 1
+to create-new-player
+  create-players 1
   [
     ;; store the message-source in user-id now
     ;; so when you get messages from this client
     ;; later you will know which turtle it affects
     set user-id hubnet-message-source
     set label user-id
+
+    if not (member? user-id player_list) [
+      set player_list lput user-id player_list
+    ]
     ;; initialize turtle variables to the default
     ;; value of the corresponding widget in the client interface
-    set step-size 1
+    set chesscolor get-chesscolor user-id
     ;; update the clients with any information you have set
     send-info-to-clients
   ]
@@ -164,51 +167,26 @@ end
 ;; send messages to it after it is gone) also if any other
 ;; turtles of variables reference this turtle make sure to clean
 ;; up those references too.
-to remove-student
-  ask students with [user-id = hubnet-message-source]
+to remove-player
+  ask players with [user-id = hubnet-message-source]
   [ die ]
 end
 
-;; Other messages correspond to users manipulating the
-;; client interface, handle these individually.
-to execute-command [command]
-  ;; you should have one if statement for each widget that
-  ;; can affect the outcome of the model, buttons, sliders, switches
-  ;; choosers and the view, if the user clicks on the view you will receive
-  ;; a message with the tag "View" and the hubnet-message will be a
-  ;; two item list of the coordinates
-  if command = "step-size"
-  [
-    ;; note that the hubnet-message will vary depending on
-    ;; the type of widget that corresponds to the tag
-    ;; for example if the widget is a slider the message
-    ;; will be a number, of the widget is switch the message
-    ;; will be a boolean value
-    set step-size hubnet-message
-    stop
+to-report get-chesscolor [a_user-id]
+  let aColor "neutral"
+  if (0 < length player_list) [
+    if (a_user-id = item 0 player_list)[ set aColor "black"]
   ]
-  if command = "up"
-  [ execute-move 0 stop ]
-  if command = "down"
-  [ execute-move 180 stop ]
-  if command = "right"
-  [ execute-move 90 stop ]
-  if command = "left"
-  [ execute-move 270 stop ]
+  if (1 < length player_list)[
+    if (a_user-id = item 1 player_list)[ set aColor "white"]
+  ]
+  report aColor
 end
-
 ;; whenever something in world changes that should be displayed in
 ;; a monitor on the client send the information back to the client
 to send-info-to-clients ;; turtle procedure
-  hubnet-send user-id "location" (word "(" pxcor "," pycor ")")
+  hubnet-send user-id "chesscolor" get-chesscolor user-id
 end
-
-to execute-move [new-heading]
-  set heading new-heading
-  fd step-size
-  send-info-to-clients
-end
-
 
 ; Public Domain:
 ; To the extent possible under law, Uri Wilensky has waived all
@@ -583,9 +561,9 @@ need-to-manually-make-preview-for-this-model
 @#$#@#$#@
 @#$#@#$#@
 VIEW
-252
+140
 10
-682
+570
 440
 0
 0
@@ -604,102 +582,51 @@ VIEW
 0
 19
 
-BUTTON
-85
-121
-147
-154
-up
-NIL
-NIL
-1
-T
-OBSERVER
-NIL
-I
-
-BUTTON
-85
-187
-150
-220
-down
-NIL
-NIL
-1
-T
-OBSERVER
-NIL
-K
-
-BUTTON
-147
-154
-210
-187
-right
-NIL
-NIL
-1
-T
-OBSERVER
-NIL
-L
-
-BUTTON
-23
-154
-85
-187
-left
-NIL
-NIL
-1
-T
-OBSERVER
-NIL
-J
-
-SLIDER
-39
-78
-189
-111
-step-size
-step-size
-1.0
-5.0
-2
-1.0
-1
-NIL
-HORIZONTAL
-
 MONITOR
-70
-21
-157
-70
-location
+589
+213
+668
+262
+Black Piece
 NIL
-0
+3
 1
 
 MONITOR
-26
-254
-83
-303
+587
+378
+668
+427
+White Piece
+NIL
+3
+1
+
+CHOOSER
+-2
+11
+136
+56
+chesscolor
+chesscolor
+\"black\" \"white\" \"neutral\"
+1
+
+MONITOR
+29
+244
+86
+293
 xLoc
 NIL
 3
 1
 
 MONITOR
-93
-254
-150
-303
+28
+305
+85
+354
 yLoc
 NIL
 3
