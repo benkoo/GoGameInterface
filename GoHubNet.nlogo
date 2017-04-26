@@ -95,13 +95,7 @@ to go
     set size 0
 
   every 0.1[
-    if (hubnet-message-tag = "View") [
-          ask patches with [pxcor = (round item 0 hubnet-message) and
-                            pycor = (round item 1 hubnet-message)]
-          [
-             set pcolor red
-          ]
-    ]
+
 
     ifelse mouse-down? [
       let mX (round mouse-xcor)
@@ -137,6 +131,14 @@ to listen-clients
       [ remove-player ]
     ]
   ]
+
+    if (hubnet-message-tag = "View") [
+          ask patches with [pxcor = (round item 0 hubnet-message) and
+                            pycor = (round item 1 hubnet-message)]
+          [
+             set pcolor red
+          ]
+    ]
 end
 
 ;; when a new user logs in create a player turtle
