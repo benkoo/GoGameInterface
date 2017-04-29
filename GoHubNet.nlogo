@@ -109,7 +109,7 @@ to go
     let mY item 1 current_move
     let chessColor item 2 current_move
 
-    if canDealHand? mX mY isBlack? [
+    if (canDealHand? mX mY isBlack?) and isNewMove? [
       set koX -1
       set koY -1
 
@@ -318,6 +318,7 @@ to-report canDealHand? [x y chess_is_black?]
   set okToDeal patchEmpty? and (not isLastFriendlyEmptySpot?) or hasEnemyToKill?
 
   ifelse not okToDeal [
+    set isNewMove? false
     if not patchEmpty?[
       user-message word "The location " word x word ", " word y " is occupied!"
     ]
@@ -331,6 +332,7 @@ to-report canDealHand? [x y chess_is_black?]
       let piecesToBeKilled findEnemyPiecesForKill x y chess_is_black?
       if (1 = length piecesToBeKilled)[
         set okToDeal false
+        set isNewMove? false
         user-message word "This piece place on " word x word ", " word y " is a violation of the Ko rule."
       ]
     ]
