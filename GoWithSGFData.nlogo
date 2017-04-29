@@ -12,11 +12,6 @@ undirected-link-breed [black-links black-link]
 ;;Declare global variables
 globals [mouse-clicked? isBlack? boardSize currentNumberOfLinkedPieces koX koY GAME_FILE_NAME move_list]
 
-;; When using HubNet features, the startup procedure must be delcared and run the hubnet-reset instruction
-;to startup
-;  hubnet-reset
-;end
-
 to setup
   clear-all
   reset-ticks
