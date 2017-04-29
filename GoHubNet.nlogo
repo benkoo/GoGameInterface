@@ -1,6 +1,6 @@
-;; create a breed of turtles that the players control through the clients
-;; there will be one player for each client.
-breed [players player]
+;; create a breed of turtles that the participants control through the clients
+;; there will be one participant for each client.
+breed [participants participant]
 breed [boardspaces boardspace]
 breed [whitepieces whitepiece]
 breed [blackpieces blackpiece]
@@ -12,18 +12,26 @@ undirected-link-breed [white-links white-link]
 undirected-link-breed [black-links black-link]
 
 
-globals [player_list mouse-clicked? isBlack? num_lines currentNumberOfLinkedPieces koX koY]
+globals [
+  participant_list
+  mouse-clicked?
+  isBlack?
+  num_lines
+  currentNumberOfLinkedPieces
+  koX koY
+  move_list
+  current_move
+  isNewMove?
+  GAME_FILE_NAME
+]
 
-players-own
+participants-own
 [
-  user-id    ;; Player choose a user name when they log in whenever you receive a
-             ;; message from the player associated with this turtle hubnet-message-source
+  user-id    ;; Participant choose a user name when they log in whenever you receive a
+             ;; message from the participant associated with this turtle hubnet-message-source
              ;; will contain the user-id
 
-  chesscolor ;; you should have a turtle variable for every widget in the client interface that
-             ;; stores a value (sliders, choosers, and switches). You will receive a message
-             ;; from the client whenever the value changes. However, you will not be able to
-             ;; retrieve the value at will unless you store it in a variable on the server.
+  participant-count    ;; The number of participants.
 
   xLoc       ;; The most recent chess placement location on the x axis.
 
@@ -37,21 +45,22 @@ to startup
 end
 
 to setup
+  clear-all
   clear-patches
   clear-drawing
   clear-output
 
-  set player_list []
-  remove-player
+  set participant_list []
+  set move_list []
+  set current_move []
+
+  set isNewMove? false
+  remove-participant
   ;; during setup you do not want to kill all the turtles
   ;; (if you do you'll lose any information you have about the clients)
   ;; so reset any variables you want to default values, and let the clients
   ;; know about the change if the value appears anywhere in their interface.
-  ask players
-  [
-    set chesscolor "black"
-    hubnet-send user-id "chesscolor" chesscolor
-  ]
+
   ;; calling reset-ticks enables the 'go' button
   reset-ticks
 
@@ -82,6 +91,10 @@ to drawXYGrid
       set thickness 0.07
     ]
   ]
+
+  ask participants [
+    set size 0
+  ]
 end
 
 
@@ -91,25 +104,46 @@ to go
   ;; get processed and responded to as fast as possible
   listen-clients
 
-  ask players [
-    set size 0
+  if (not empty? current_move) and (isNewMove?)[
+    let mX item 0 current_move
+    let mY item 1 current_move
+    let chessColor item 2 current_move
 
-  every 0.1[
+    if canDealHand? mX mY isBlack? [
+      set koX -1
+      set koY -1
 
+      let deadChessList (findEnemyPiecesForKill mX mY isBlack?)
 
-    ifelse mouse-down? [
-      let mX (round mouse-xcor)
-      let mY (round mouse-ycor)
-      hubnet-send user-id "xLoc" mX
-      hubnet-send user-id "yLoc" mY
-    ][
-      hubnet-send user-id "xLoc" -1
-      hubnet-send user-id "yLoc" -1
+      if 1 = length deadChessList [
+        let aChess last deadChessList
+        set koX [xcor] of aChess
+        set koY [ycor] of aChess
+      ]
+
+      foreach deadChessList [ aChess ->
+        ask aChess [
+          die
+        ]
+      ]
+
+      ifelse isBlack?[
+        create-blackpieces 1 [
+          dealOneHandofChessWithXY mX mY chessColor
+          set isBlack? false
+          set isNewMove? false
+        ]
+      ][
+        create-whitepieces 1 [
+          dealOneHandofChessWithXY mX mY chessColor
+          set isBlack? true
+          set isNewMove? false
+        ]
+      ]
+
+      set move_list lput current_move move_list
     ]
-
- ]
-
-]
+  ]
 tick ;; This tick operation is necessary to make the updates show up on "View".
 end
 
@@ -125,27 +159,540 @@ to listen-clients
     ;; get the first message in the queue
     hubnet-fetch-message
     ifelse hubnet-enter-message? ;; when clients enter we get a special message
-    [ create-new-player ]
+    [ create-new-participant ]
     [
-      if hubnet-exit-message? ;; when clients exit we get a special message
-      [ remove-player ]
+      ifelse hubnet-exit-message? ;; when clients exit we get a special message
+      [ remove-participant ]
+      [
+        ask participants with [user-id = hubnet-message-source]
+        [
+          execute-command hubnet-message-tag
+        ]
+      ]
     ]
   ]
 
-    if (hubnet-message-tag = "View") [
-          ask patches with [pxcor = (round item 0 hubnet-message) and
-                            pycor = (round item 1 hubnet-message)]
-          [
-             set pcolor red
-          ]
-    ]
 end
 
-;; when a new user logs in create a player turtle
+
+to execute-command [command]
+
+  if is-player? hubnet-message-source [
+
+    if command = "View" [
+
+      let xx round item 0 hubnet-message
+      let yy round item 1 hubnet-message
+
+      if (not isBlack?) and (white = chess-color hubnet-message-source)[
+        set current_move (list xx yy white)
+        set isNewMove? true
+        stop
+      ]
+
+      if (isBlack?) and (red = chess-color hubnet-message-source)[
+        set current_move (list xx yy red)
+        set isNewMove? true
+        stop
+      ]
+    ]
+  ]
+end
+
+
+;;This procedure is to set up the location and links with other pieces
+to dealOneHandofChessWithXY [mX mY myColor]
+
+  ;Change the shape and size of the chess piece
+  set shape "circle"
+  set size 0.5
+
+  set color myColor
+  setxy mX mY
+
+  markNodeListInColor sort boardspaces blue
+
+  ifelse (myColor = white) [
+    create-white-links-with other whitepieces in-radius 1 [
+      set thickness 0.2
+    ]
+
+    ask one-of whitepieces in-radius 0 [
+        set currentNumberOfLinkedPieces count link-neighbors
+    ]
+
+  ][
+    create-black-links-with other blackpieces in-radius 1 [
+      set thickness 0.2
+    ]
+
+    ask one-of blackpieces in-radius 0 [
+        set currentNumberOfLinkedPieces count link-neighbors
+    ]
+  ]
+end
+
+;;This procedure is to set up the location and links with other pieces
+to placeOneChessPiece [mX mY myColor]
+
+  show word "Deal with : " myColor
+
+  ;Change the shape and size of the chess piece
+  set shape "circle"
+  set size 0.5
+  set color myColor
+  setxy mX mY
+
+  markNodeListInColor sort boardspaces blue
+
+  ifelse (myColor = white) [
+    create-white-links-with other whitepieces in-radius 1 [
+      ;set color blue
+      set thickness 0.2
+    ]
+
+    ask one-of whitepieces in-radius 0 [
+        ;ask link-neighbors [ set color green ]
+        set currentNumberOfLinkedPieces count link-neighbors
+    ]
+
+  ][
+    create-black-links-with other blackpieces in-radius 1 [
+      ;set color yellow
+      set thickness 0.2
+    ]
+
+    ask one-of blackpieces in-radius 0 [
+        ;ask link-neighbors [ set color cyan ]
+        set currentNumberOfLinkedPieces count link-neighbors
+    ]
+  ]
+end
+
+
+;; This function provides the overall logical structure to determine whether one may or may not deal hand.
+to-report canDealHand? [x y chess_is_black?]
+
+  let isSurrounded? false
+  let patchEmpty? true
+  let hasEnemyToKill? false
+
+
+  let chess_color "white"
+  let friendlyCount 0
+  let enemyCount 0
+  let spaceCount 0
+
+  let isLastFriendlyEmptySpot? isLastEmptySpaceOfColor? x y false
+
+  ask patch x y [
+    set spaceCount count boardspaces in-radius 1
+
+    set friendlyCount count whitepieces in-radius 1
+    set enemyCount count blackpieces in-radius 1
+
+    if (chess_is_black?)[
+      set chess_color "black"
+      set friendlyCount count blackpieces in-radius 1
+      set enemyCount count whitepieces in-radius 1
+      set isLastFriendlyEmptySpot? isLastEmptySpaceOfColor? x y true
+    ]
+  ]
+
+  if isLastFriendlyEmptySpot?[
+    ;; Check if this spot has more non-occupied spaces
+    if (spaceCount - (friendlyCount + enemyCount)) > 1[
+      set isLastFriendlyEmptySpot? false
+    ]
+
+    let piecesToBeKilled findEnemyPiecesForKill x y chess_is_black?
+    if (0 < length piecesToBeKilled ) [
+      set hasEnemyToKill? true
+    ]
+  ]
+
+
+
+  let okToDeal true
+  set patchEmpty? (isPatchEmpty? x y)
+  set okToDeal patchEmpty? and (not isLastFriendlyEmptySpot?) or hasEnemyToKill?
+
+  ifelse not okToDeal [
+    if not patchEmpty?[
+      user-message word "The location " word x word ", " word y " is occupied!"
+    ]
+
+    if isLastFriendlyEmptySpot?[
+      user-message word "The location is the last empty spot (chi) for the friendly " word chess_color " pieces"
+    ]
+  ][
+    ;; if this is allowed to deal, check if this violates the ko condition
+    if (koX = x) and (koY = y)[
+      let piecesToBeKilled findEnemyPiecesForKill x y chess_is_black?
+      if (1 = length piecesToBeKilled)[
+        set okToDeal false
+        user-message word "This piece place on " word x word ", " word y " is a violation of the Ko rule."
+      ]
+    ]
+  ]
+
+  report okToDeal
+end
+
+;; This procedure checks if the selected location is completely surrounded by Enemy or not
+to-report findEnemyPiecesForKill [mX mY is_black?]
+
+  let chessList []
+  let neighboringEnemyChessList []
+  let deadChessList []
+
+  ifelse is_black? [
+    set chessList whitepieces  ;; For black being placed at mX mY, search for whitepieces
+  ][
+    set chessList blackpieces  ;; For white being placed at mX mY, search for blackpieces
+  ]
+
+  ;;This code block will create neighboringEnemyChessList that contains the opponents' immeidately adjaceny chess pieces
+  ask patch mX mY [
+    ask chessList in-radius 1 [
+      if not member? self neighboringEnemyChessList  [
+        set neighboringEnemyChessList lput self neighboringEnemyChessList
+      ]
+    ]
+  ]
+
+  ;;Go through each immediately adjaceny enemy chess piece, and see if it is eligible for kill.
+  foreach neighboringEnemyChessList [ enemyChess ->
+
+    ;;Find all connected enemy pieces starting from the chosen "enemyChess"
+    let connectedEnemies findNeighbors (list enemyChess)
+
+    ;;Evaluate to know how many remaining chi that this branch of chess has
+    let emptySpots findChis connectedEnemies
+    let spaceCount length emptySpots ;;This is set to a large number, so that we know that it is not 1 or 0
+
+    ;;If the only available chi (spaceCount = 1) is the empty spot to be occupied, we can start constructing a deadChessList
+    if (spaceCount = 1)[
+      ;; user-message (word "Is surrounded by chess with " word spaceCount " chi." )
+      ;; If the surrounded ememy chess only has one chi left, then send "die" message to all of them
+      foreach connectedEnemies [ aChess ->
+        if not member? aChess deadChessList [
+          set deadChessList lput aChess deadChessList
+        ]
+      ]
+    ]
+  ]
+
+  report deadChessList
+
+end
+
+;A neighbor search function that identifies all chesspieces of same color that are connected
+to-report findNeighbors [ nodeList ]
+  let aList nodeList
+  let initialCount 0
+
+  while [initialCount < length aList]
+  [
+  set initialCount length aList
+  foreach aList [ vNode ->
+      ask vNode [
+        ask link-neighbors [
+          if not member? self aList  [
+            set aList lput self aList
+          ]
+        ]
+      ]
+    ]
+  ]
+  report aList
+
+end
+
+;; Given a list of black or white pieces,
+;; find all the boardspaces next to them
+;; and return them in a list.
+to-report findChis [ nodeList ]
+  let newList []
+
+  foreach nodeList [ vNode ->
+    ask vNode[
+      ask boardspaces in-radius 1 [
+          if not member? self newList  [
+            ;;Check if aSpace is an instance of breed boardspaces
+            ifelse is-boardspace? self [
+              let mX ([xcor] of self)
+              let mY ([ycor] of self)
+              if isPatchEmpty? mX mY[
+                set newList lput self newList
+              ]
+            ][
+              user-message (word "This is not an instance of boardspace" self)
+            ]
+          ]
+      ]
+   ]
+  ]
+
+  report newList
+
+end
+
+;; Given black or white choices,
+;; return a boolean value indicating whether
+to-report isLastEmptySpaceOfColor? [mX mY isBlackPiece?]
+  let isLastEmptySpot? false
+
+  ask patch mX mY [
+
+    let spaceCount count boardspaces in-radius 1
+    let friendlyCount count whitepieces in-radius 1
+    let enemyCount count blackpieces in-radius 1
+
+    let friendlyPieces whitepieces
+    if isBlackPiece? [
+      set friendlyPieces blackpieces
+      set friendlyCount count blackpieces in-radius 1
+      set enemyCount count whitepieces in-radius 1
+    ]
+
+    let neighbhorpieces friendlyPieces in-radius 1
+
+    let nbs findNeighbors sort neighbhorpieces
+    let availableChis findChis nbs
+    markNodeListInColor availableChis cyan
+    if 1 >= length availableChis[
+      set isLastEmptySpot? true
+    ]
+
+    if (enemyCount >= (spaceCount - 1))[
+      set isLastEmptySpot? true
+    ]
+  ]
+  report isLastEmptySpot?
+end
+
+
+to-report isPatchEmpty? [mX mY]
+  let emptyStatus? false
+
+  ;;Check if anEmptySpace is an instance of breed boardspaces
+
+    let totalCount 0
+    ask patch mX mY [
+      ask whitepieces in-radius 0 [
+        set totalCount 1 + totalCount
+      ]
+
+      ask blackpieces in-radius 0 [
+        set totalCount 1 + totalCount
+      ]
+
+      ifelse totalCount = 0 [
+        set emptyStatus? true
+      ][
+        set emptyStatus? false
+      ]
+    ]
+
+  report emptyStatus?
+
+end
+
+
+to markNodeListInColor [turtleList aColor]
+  foreach turtleList [anObj ->
+    ask anObj [
+      set color aColor
+      set shape "circle"
+      set size 0.2
+    ]
+  ]
+end
+
+to-report numBlacks
+  report count blackpieces
+end
+
+to-report numWhites
+  report count whitepieces
+end
+
+to-report currentlyLinkedNodes
+  report currentNumberOfLinkedPieces
+end
+
+;; This procedure loads an SGF formated game data from a file.
+to load-game-data
+
+  ;;first clear the board
+  setup
+
+  set GAME_FILE_NAME user-file
+
+  ;; Must make usre that textline-data is initialized to a list
+  let textline-data []
+
+  ;; We check to make sure the file exists first
+  ifelse ( file-exists? GAME_FILE_NAME )
+  [
+    ;; This opens the file, so we can use it.
+    file-open GAME_FILE_NAME
+
+    ;; Read in all the data in the file
+    while [ not file-at-end? ]
+    [
+      set textline-data lput file-read-line textline-data
+    ]
+
+    let i 0
+    let move-data []
+    set move_list []
+    while [i < length textline-data] [
+      let aStr item i textline-data
+
+      if 1 < length aStr [
+
+        if (substring aStr 0 5 = "(;SZ[")[
+          let sizeStr substring aStr 5 7
+          ifelse last sizeStr = "]"[
+            set num_lines but-last sizeStr
+          ][
+            set num_lines sizeStr
+          ]
+          print word "Board Size: " num_lines
+        ]
+
+        if (substring aStr 0 3 = ";B[") or (substring aStr 0 3 = ";W[")[
+          while [6 <= length aStr and ((substring aStr 0 3 = ";B[") or (substring aStr 0 3 = ";W["))][
+            let myMove substring aStr 1 6
+            set move-data lput myMove move-data
+            set move_list lput interpretMove myMove move_list
+            set aStr substring aStr 6 length aStr
+          ]
+       ]
+      ]
+    set i (i + 1)
+    ]
+
+    ;; Done reading in patch information.  Close the file.
+    file-close
+  ]
+  [ user-message word "There is no " word GAME_FILE_NAME " file in current directory!" ]
+
+  foreach move_list [ aMove ->
+    ifelse isBlack? [
+            create-blackpieces 1 [
+              placeOneChessPiece item 1 aMove item 2 aMove red
+            ]
+            set isBlack? false
+          ][
+            create-whitepieces 1 [
+              placeOneChessPiece item 1 aMove item 2 aMove white
+            ]
+            set isBlack? true
+          ]
+  ]
+end
+
+;; This procedure does the same thing as the above one, except it lets the user choose
+;; the file to load from.  Note that we need to check that it isn't false.  This because
+;; it will return false if the user cancels the file dialog.  There is currently only
+;; one file to load from, but you can create your own using the function save-patch-data
+;; near the bottom which saves all the current patches into a file.
+to save-game-data
+  let MOVE_COUNT 12
+  let file user-new-file
+
+  if ( file != false )
+  [
+
+    file-open file
+    file-print word "(;SZ[" word num_lines "]"
+
+    let a_line ""
+    let i 0
+    while [i < length move_list] [
+      let aMove item i move_list
+      set i i + 1
+      let myColor item 0 aMove
+      let x getChar item 1 aMove
+      let y getChar item 2 aMove
+
+      set a_line word a_line word ";" word myColor word "[" word x word y "]"
+
+      if (i >= MOVE_COUNT) and (i mod MOVE_COUNT = 0) [
+        file-print a_line
+        set a_line ""
+      ]
+    ]
+
+    if (i mod MOVE_COUNT > 0) [file-print a_line]
+
+    file-print ")"
+    user-message "File saving complete!"
+    file-close
+  ]
+end
+
+;; This procedure will use the loaded in patch data to color the patches.
+;; The list is a list of three-tuples where the first item is the pxcor, the
+;; second is the pycor, and the third is pcolor. Ex. [ [ 0 0 5 ] [ 1 34 26 ] ... ]
+to show-game-data
+  print move_list
+end
+
+to-report interpretMove [aString]
+  let moveTriple []
+  let myColor first aString
+  let xCoordStr substring aString 2 3
+  let yCoordStr substring aString 3 4
+
+  let xCoord getNum xCoordStr
+  let yCoord getNum yCoordStr
+
+  set moveTriple lput myColor moveTriple
+  set moveTriple lput xCoord moveTriple
+  set moveTriple lput yCoord moveTriple
+
+  report moveTriple
+
+end
+
+to-report getNum [aChar]
+  let num -1
+  let CHARACTERSET "abcdefghijklmnopqrstuvwxyz"
+  if (length aChar = 1)[
+    let i 0
+    while [i <= length CHARACTERSET ][
+      if (item i CHARACTERSET = aChar)[
+        set num i
+        set i length CHARACTERSET
+      ]
+      set i i + 1
+    ]
+  ]
+  report num
+end
+
+to-report getChar [aNum]
+  let char "\n"
+  let CHARACTERSET "abcdefghijklmnopqrstuvwxyz"
+  if (aNum < 26)[
+    set char item aNum CHARACTERSET
+  ]
+  report char
+end
+
+;;
+;; HubNet Procedures
+;;
+
+;; when a new user logs in create a participant turtle
 ;; this turtle will store any state on the client
 ;; values of sliders, etc.
-to create-new-player
-  create-players 1
+to create-new-participant
+  create-participants 1
   [
     ;; store the message-source in user-id now
     ;; so when you get messages from this client
@@ -153,12 +700,12 @@ to create-new-player
     set user-id hubnet-message-source
     set label user-id
 
-    if not (member? user-id player_list) [
-      set player_list lput user-id player_list
+    if not (member? user-id participant_list) [
+      set participant_list lput user-id participant_list
     ]
     ;; initialize turtle variables to the default
     ;; value of the corresponding widget in the client interface
-    set chesscolor get-chesscolor user-id
+
     ;; update the clients with any information you have set
     send-info-to-clients
   ]
@@ -169,25 +716,48 @@ end
 ;; send messages to it after it is gone) also if any other
 ;; turtles of variables reference this turtle make sure to clean
 ;; up those references too.
-to remove-player
-  ask players with [user-id = hubnet-message-source]
-  [ die ]
+to remove-participant
+  ask participants with [user-id = hubnet-message-source]
+  [
+    set participant_list remove user-id participant_list
+    die
+  ]
 end
 
-to-report get-chesscolor [a_user-id]
-  let aColor "neutral"
-  if (0 < length player_list) [
-    if (a_user-id = item 0 player_list)[ set aColor "black"]
+to-report is-player? [player-id]
+  let player-status? false
+  ifelse ( length participant_list >= 2)[
+    if (player-id = item 0 participant_list) [set player-status? true]
+    if (player-id = item 1 participant_list) [set player-status? true]
+  ][
+    user-message word "Not enough participants. Current participant count: " length participant_list
   ]
-  if (1 < length player_list)[
-    if (a_user-id = item 1 player_list)[ set aColor "white"]
-  ]
-  report aColor
+
+  report player-status?
 end
+
+to-report chess-color [player-id]
+  let myColor false
+  ifelse ( length participant_list >= 2)[
+    if (player-id = item 0 participant_list) [set myColor red]
+    if (player-id = item 1 participant_list) [set myColor white]
+  ][
+    user-message word "Not enough participants. Current participant count: " length participant_list
+  ]
+
+  report myColor
+end
+
+to show-participants
+  foreach participant_list [ obj ->
+    show obj
+  ]
+end
+
 ;; whenever something in world changes that should be displayed in
 ;; a monitor on the client send the information back to the client
 to send-info-to-clients ;; turtle procedure
-  hubnet-send user-id "chesscolor" get-chesscolor user-id
+  hubnet-send user-id "participant-count" length participant_list
 end
 
 ; Public Domain:
@@ -630,6 +1200,16 @@ MONITOR
 85
 354
 yLoc
+NIL
+3
+1
+
+MONITOR
+6
+61
+129
+110
+participant-count
 NIL
 3
 1
