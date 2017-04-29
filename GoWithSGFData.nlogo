@@ -1,3 +1,5 @@
+[extensions sound]
+
 breed [boardspaces boardspace]
 breed [whitepieces whitepiece]
 breed [blackpieces blackpiece]
