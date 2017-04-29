@@ -9,6 +9,7 @@ undirected-link-breed [lineLinks lineLink]
 undirected-link-breed [white-links white-link]
 undirected-link-breed [black-links black-link]
 
+
 ;;Declare global variables
 globals [mouse-clicked? isBlack? boardSize currentNumberOfLinkedPieces koX koY GAME_FILE_NAME move_list]
 
