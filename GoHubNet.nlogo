@@ -551,19 +551,53 @@ to load-game-data
   [ user-message word "There is no " word GAME_FILE_NAME " file in current directory!" ]
 
   foreach move_list [ aMove ->
-    ifelse isBlack? [
-      create-blackpieces 1 [
-      dealOneHandofChessWithXY item 1 aMove item 2 aMove red
-    ]
-      set isBlack? false
-    ][
-      create-whitepieces 1 [
-      dealOneHandofChessWithXY item 1 aMove item 2 aMove white
-    ]
-      set isBlack? true
-    ]
+    playing_by_the_rules aMove
   ]
   ask participants [ send-info-to-clients ]
+end
+
+
+;;This function tries to integrate all the rules
+;;So that either loading a game from SGF file, or playing by hand
+;;will reach the same results.
+to playing_by_the_rules [ someMove ]
+
+  let mX item 1 someMove
+  let mY item 2 someMove
+
+  if (canDealHand? mX mY isBlack?) [
+      set koX -1
+      set koY -1
+
+      let deadChessList (findEnemyPiecesForKill mX mY isBlack?)
+
+      if 1 = length deadChessList [
+        let aChess last deadChessList
+        set koX [xcor] of aChess
+        set koY [ycor] of aChess
+      ]
+
+      foreach deadChessList [ aChess ->
+        ask aChess [
+          die
+        ]
+      ]
+
+      ifelse isBlack?[
+        create-blackpieces 1 [
+          dealOneHandofChessWithXY mX mY red
+          set isBlack? false
+          set isNewMove? false
+        ]
+      ][
+        create-whitepieces 1 [
+          dealOneHandofChessWithXY mX mY white
+          set isBlack? true
+          set isNewMove? false
+        ]
+      ]
+    ]
+
 end
 
 ;; This procedure does the same thing as the above one, except it lets the user choose
