@@ -143,8 +143,13 @@ to go
 
       set move_list lput current_move move_list
     ]
+
+    ask participants [
+       send-info-to-clients
+    ]
+    tick ;; This tick operation is necessary to make the updates show up on "View".
   ]
-tick ;; This tick operation is necessary to make the updates show up on "View".
+
 end
 
 ;;
@@ -227,43 +232,6 @@ to dealOneHandofChessWithXY [mX mY myColor]
     ]
 
     ask one-of blackpieces in-radius 0 [
-        set currentNumberOfLinkedPieces count link-neighbors
-    ]
-  ]
-end
-
-;;This procedure is to set up the location and links with other pieces
-to placeOneChessPiece [mX mY myColor]
-
-  show word "Deal with : " myColor
-
-  ;Change the shape and size of the chess piece
-  set shape "circle"
-  set size 0.5
-  set color myColor
-  setxy mX mY
-
-  markNodeListInColor sort boardspaces blue
-
-  ifelse (myColor = white) [
-    create-white-links-with other whitepieces in-radius 1 [
-      ;set color blue
-      set thickness 0.2
-    ]
-
-    ask one-of whitepieces in-radius 0 [
-        ;ask link-neighbors [ set color green ]
-        set currentNumberOfLinkedPieces count link-neighbors
-    ]
-
-  ][
-    create-black-links-with other blackpieces in-radius 1 [
-      ;set color yellow
-      set thickness 0.2
-    ]
-
-    ask one-of blackpieces in-radius 0 [
-        ;ask link-neighbors [ set color cyan ]
         set currentNumberOfLinkedPieces count link-neighbors
     ]
   ]
@@ -584,17 +552,18 @@ to load-game-data
 
   foreach move_list [ aMove ->
     ifelse isBlack? [
-            create-blackpieces 1 [
-              placeOneChessPiece item 1 aMove item 2 aMove red
-            ]
-            set isBlack? false
-          ][
-            create-whitepieces 1 [
-              placeOneChessPiece item 1 aMove item 2 aMove white
-            ]
-            set isBlack? true
-          ]
+      create-blackpieces 1 [
+      dealOneHandofChessWithXY item 1 aMove item 2 aMove red
+    ]
+      set isBlack? false
+    ][
+      create-whitepieces 1 [
+      dealOneHandofChessWithXY item 1 aMove item 2 aMove white
+    ]
+      set isBlack? true
+    ]
   ]
+  ask participants [ send-info-to-clients ]
 end
 
 ;; This procedure does the same thing as the above one, except it lets the user choose
@@ -759,12 +728,16 @@ end
 ;; whenever something in world changes that should be displayed in
 ;; a monitor on the client send the information back to the client
 to send-info-to-clients ;; turtle procedure
-  hubnet-send user-id "participant-count" length participant_list
+  hubnet-send user-id "Black Piece" count blackpieces
+  hubnet-send user-id "White Piece" count whitepieces
+  hubnet-send user-id "Total Hands Dealt" num-of-moves
 end
 
+to-report num-of-moves
+  report length move_list
+end
 ; Public Domain:
-; To the extent possible under law, Uri Wilensky has waived all
-; copyright and related or neighboring rights to this model.
+; This model is written as an exercise to learn NetLogo
 @#$#@#$#@
 GRAPHICS-WINDOW
 231
@@ -826,6 +799,51 @@ NIL
 NIL
 NIL
 0
+
+BUTTON
+36
+339
+216
+372
+Load Game (SGF format)
+load-game-data
+NIL
+1
+T
+OBSERVER
+NIL
+L
+NIL
+NIL
+1
+
+BUTTON
+36
+379
+218
+412
+Save current Game
+save-game-data
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+MONITOR
+68
+285
+189
+330
+Total Hands Dealt
+num-of-moves
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1135,9 +1153,9 @@ need-to-manually-make-preview-for-this-model
 @#$#@#$#@
 @#$#@#$#@
 VIEW
-140
+13
 10
-570
+443
 440
 0
 0
@@ -1157,61 +1175,31 @@ VIEW
 19
 
 MONITOR
-589
-213
-668
-262
+449
+11
+528
+60
 Black Piece
 NIL
 3
 1
 
 MONITOR
-587
-378
-668
-427
+450
+390
+531
+439
 White Piece
 NIL
 3
 1
 
-CHOOSER
--2
-11
-136
-56
-chesscolor
-chesscolor
-\"black\" \"white\" \"neutral\"
-1
-
 MONITOR
-29
-244
-86
-293
-xLoc
-NIL
-3
-1
-
-MONITOR
-28
-305
-85
-354
-yLoc
-NIL
-3
-1
-
-MONITOR
-6
-61
-129
-110
-participant-count
+451
+201
+572
+250
+Total Hands Dealt
 NIL
 3
 1
