@@ -1,7 +1,8 @@
-
 breed [boardspaces boardspace]
 breed [whitepieces whitepiece]
 breed [blackpieces blackpiece]
+
+
 
 ;; Note that once you created certain breed of links, all links must be given a special breed.
 undirected-link-breed [lineLinks lineLink]
@@ -9,6 +10,7 @@ undirected-link-breed [lineLinks lineLink]
 ;;These are special types of links between white and black pieces of chess.
 undirected-link-breed [white-links white-link]
 undirected-link-breed [black-links black-link]
+
 
 ;;Declare global variables
 globals [mouse-clicked? isBlack? boardSize currentNumberOfLinkedPieces koX koY GAME_FILE_NAME move_list]
