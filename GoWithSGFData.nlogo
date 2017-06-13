@@ -20,9 +20,9 @@ to setup
   reset-ticks
   set isBlack? true
   if (boardSize <= 0)[
-    set boardSize 18 ;; Set the chess board to have boardSize * boardSize lines
+    set boardSize 19 ;; Set the chess board to have boardSize * boardSize lines
   ]
-  resize-world 0 boardSize 0 boardSize
+  resize-world 0 (boardSize - 1) 0 (boardSize - 1)
   set currentNumberOfLinkedPieces 0
   set koX -1
   set koY -1

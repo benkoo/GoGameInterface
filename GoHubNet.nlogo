@@ -66,8 +66,8 @@ to setup
 
   ;;Start the Go implementation
   set isBlack? true
-  set num_lines 18 ;; Set the chess board to have num_lines * num_lines lines
-  resize-world 0 num_lines 0 num_lines
+  set num_lines 19 ;; Set the chess board to have num_lines * num_lines lines
+  resize-world 0 (num_lines - 1) 0 (num_lines - 1)
   set currentNumberOfLinkedPieces 0
   set koX -1
   set koY -1
@@ -776,8 +776,8 @@ end
 GRAPHICS-WINDOW
 231
 10
-639
-419
+619
+399
 -1
 -1
 20.0
@@ -791,9 +791,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-19
+18
 0
-19
+18
 1
 1
 0
@@ -1204,9 +1204,9 @@ VIEW
 1
 1
 0
-19
+18
 0
-19
+18
 
 MONITOR
 449
