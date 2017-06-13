@@ -66,7 +66,7 @@ to setup
 
   ;;Start the Go implementation
   set isBlack? true
-  set num_lines 19 ;; Set the chess board to have num_lines * num_lines lines
+  set num_lines 18 ;; Set the chess board to have num_lines * num_lines lines
   resize-world 0 num_lines 0 num_lines
   set currentNumberOfLinkedPieces 0
   set koX -1

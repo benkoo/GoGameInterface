@@ -13,14 +13,14 @@ undirected-link-breed [black-links black-link]
 
 
 ;;Declare global variables
-globals [mouse-clicked? isBlack? boardSize currentNumberOfLinkedPieces koX koY GAME_FILE_NAME move_list]
+globals [mouse-clicked? isBlack? boardSize currentNumberOfLinkedPieces koX koY GAME_FILE_NAME move_list isNewMove?]
 
 to setup
   clear-all
   reset-ticks
   set isBlack? true
   if (boardSize <= 0)[
-    set boardSize 19 ;; Set the chess board to have boardSize * boardSize lines
+    set boardSize 18 ;; Set the chess board to have boardSize * boardSize lines
   ]
   resize-world 0 boardSize 0 boardSize
   set currentNumberOfLinkedPieces 0
@@ -43,7 +43,11 @@ to drawXYGrid
     sprout-boardspaces 1 [
       set color white
       set shape "circle"
-      set size 0
+      ifelse show_Qis? [
+        set size 0.1
+      ][
+        set size 0
+      ]
     ]
   ]
 
@@ -219,6 +223,37 @@ to placeOneChessPiece [mX mY myColor]
 end
 
 
+;;This procedure is to set up the location and links with other pieces
+to dealOneHandofChessWithXY [mX mY myColor]
+
+  ;Change the shape and size of the chess piece
+  set shape "circle"
+  set size 0.5
+
+  set color myColor
+  setxy mX mY
+
+  markNodeListInColor sort boardspaces blue
+
+  ifelse (myColor = white) [
+    create-white-links-with other whitepieces in-radius 1 [
+      set thickness 0.2
+    ]
+
+    ask one-of whitepieces in-radius 0 [
+        set currentNumberOfLinkedPieces count link-neighbors
+    ]
+
+  ][
+    create-black-links-with other blackpieces in-radius 1 [
+      set thickness 0.2
+    ]
+
+    ask one-of blackpieces in-radius 0 [
+        set currentNumberOfLinkedPieces count link-neighbors
+    ]
+  ]
+end
 
 
 ;; This function provides the overall logical structure to determine whether one may or may not deal hand.
@@ -532,19 +567,54 @@ to load-game-data
   [ user-message word "There is no " word GAME_FILE_NAME " file in current directory!" ]
 
   foreach move_list [ aMove ->
-    ifelse isBlack? [
-            create-blackpieces 1 [
-              placeOneChessPiece item 1 aMove item 2 aMove red
-            ]
-            set isBlack? false
-          ][
-            create-whitepieces 1 [
-              placeOneChessPiece item 1 aMove item 2 aMove white
-            ]
-            set isBlack? true
-          ]
+    playing_by_the_rules aMove
   ]
+
 end
+
+;;This function tries to integrate all the rules
+;;So that either loading a game from SGF file, or playing by hand
+;;will reach the same results.
+to playing_by_the_rules [ someMove ]
+
+  let mX item 1 someMove
+  let mY item 2 someMove
+
+  if (canDealHand? mX mY isBlack?) [
+      set koX -1
+      set koY -1
+
+      let deadChessList (findEnemyPiecesForKill mX mY isBlack?)
+
+      if 1 = length deadChessList [
+        let aChess last deadChessList
+        set koX [xcor] of aChess
+        set koY [ycor] of aChess
+      ]
+
+      foreach deadChessList [ aChess ->
+        ask aChess [
+          die
+        ]
+      ]
+
+      ifelse isBlack?[
+        create-blackpieces 1 [
+          dealOneHandofChessWithXY mX mY red
+          set isBlack? false
+          set isNewMove? false
+        ]
+      ][
+        create-whitepieces 1 [
+          dealOneHandofChessWithXY mX mY white
+          set isBlack? true
+          set isNewMove? false
+        ]
+      ]
+    ]
+
+end
+
 
 ;; This procedure does the same thing as the above one, except it lets the user choose
 ;; the file to load from.  Note that we need to check that it isn't false.  This because
@@ -610,6 +680,16 @@ to-report interpretMove [aString]
 
 end
 
+to-report getEmptySpaceCount
+  let totalEmptySpaceCount 0
+  ask patches [
+    if isPatchEmpty? pxcor pycor [
+      set totalEmptySpaceCount 1 + totalEmptySpaceCount
+    ]
+  ]
+  report totalEmptySpaceCount
+end
+
 to-report getNum [aChar]
   let num -1
   let CHARACTERSET "abcdefghijklmnopqrstuvwxyz"
@@ -638,8 +718,8 @@ end
 GRAPHICS-WINDOW
 210
 10
-750
-551
+724
+525
 -1
 -1
 26.64
@@ -653,9 +733,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-19
+18
 0
-19
+18
 0
 0
 1
@@ -780,10 +860,32 @@ NIL
 NIL
 1
 
+SWITCH
+36
+207
+159
+240
+show_Qis?
+show_Qis?
+1
+1
+-1000
+
+MONITOR
+788
+245
+920
+290
+Total Empty Spaces
+getEmptySpaceCount
+17
+1
+11
+
 @#$#@#$#@
 ## WHAT IS IT?
 
-A networked Go playing program designed to demonstrate many programming concepts in NetLogo, including the HubNet infrastructure. 
+This program is designed to be a single user Go Game (Weiqi) program. This is a demo program to teach Space-Time programming using NetLogo. 
 
 ## HOW IT WORKS
 
@@ -1159,9 +1261,9 @@ VIEW
 1
 1
 0
-19
+18
 0
-19
+18
 
 @#$#@#$#@
 default
