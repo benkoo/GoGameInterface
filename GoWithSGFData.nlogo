@@ -13,7 +13,7 @@ undirected-link-breed [black-links black-link]
 
 
 ;;Declare global variables
-globals [mouse-clicked? isBlack? boardSize currentNumberOfLinkedPieces koX koY GAME_FILE_NAME move_list isNewMove?]
+globals [mouse-clicked? isBlack? boardSize currentNumberOfLinkedPieces koX koY GAME_FILE_NAME move_list isNewMove? whiteChis blackChis ]
 
 to setup
   clear-all
@@ -118,6 +118,8 @@ to go
           set moveTriple lput mY moveTriple
           set move_list lput moveTriple move_list
 
+          markAvailableChis
+
       ]; if canDealHand?[]
 
 
@@ -160,8 +162,6 @@ to dealOneHandofChess [myColor]
 
   setxy mX mY
 
-  markNodeListInColor sort boardspaces blue
-
   ifelse (myColor = white) [
     create-white-links-with other whitepieces in-radius 1 [
       ;set color blue
@@ -195,8 +195,6 @@ to placeOneChessPiece [mX mY myColor]
   set size 0.5
   set color myColor
   setxy mX mY
-
-  markNodeListInColor sort boardspaces blue
 
   ifelse (myColor = white) [
     create-white-links-with other whitepieces in-radius 1 [
@@ -232,8 +230,6 @@ to dealOneHandofChessWithXY [mX mY myColor]
 
   set color myColor
   setxy mX mY
-
-  markNodeListInColor sort boardspaces blue
 
   ifelse (myColor = white) [
     create-white-links-with other whitepieces in-radius 1 [
@@ -446,7 +442,7 @@ to-report isLastEmptySpaceOfColor? [mX mY isBlackPiece?]
 
     let nbs findNeighbors sort neighbhorpieces
     let availableChis findChis nbs
-    markNodeListInColor availableChis cyan
+
     if 1 >= length availableChis[
       set isLastEmptySpot? true
     ]
@@ -466,11 +462,11 @@ to-report isPatchEmpty? [mX mY]
 
     let totalCount 0
     ask patch mX mY [
-      ask whitepieces in-radius 0 [
+      ask whitepieces-on self [
         set totalCount 1 + totalCount
       ]
 
-      ask blackpieces in-radius 0 [
+      ask blackpieces-on self [
         set totalCount 1 + totalCount
       ]
 
@@ -506,6 +502,48 @@ end
 
 to-report currentlyLinkedNodes
   report currentNumberOfLinkedPieces
+end
+
+
+to markAvailableChis
+
+  let mutualChis []
+  set whiteChis findChis sort whitepieces
+  set blackChis findChis sort blackpieces
+
+     ask boardspaces [
+        set size 0
+     ]
+
+     foreach whiteChis [ aChi ->
+        ask aChi [
+         set size 0.3
+         set color white
+         set shape "square 2"
+       ]
+    ]
+
+    foreach blackChis [ aChi ->
+       ask aChi [
+            set size 0.3
+            set color red
+            set shape "square 2"
+       ]
+
+       if member? aChi whiteChis [
+         set mutualChis lput aChi mutualChis
+       ]
+
+     ]
+
+     foreach mutualChis [ aChi ->
+       ask aChi [
+         set size 0.3
+         set color cyan
+         set shape "square"
+       ]
+     ]
+
 end
 
 ;; This procedure loads an SGF formated game data from a file.
@@ -569,6 +607,8 @@ to load-game-data
   foreach move_list [ aMove ->
     playing_by_the_rules aMove
   ]
+
+  markAvailableChis
 
 end
 
@@ -878,6 +918,28 @@ MONITOR
 290
 Total Empty Spaces
 getEmptySpaceCount
+17
+1
+11
+
+MONITOR
+794
+86
+904
+131
+Black Chi Count
+length blackChis
+17
+1
+11
+
+MONITOR
+801
+447
+913
+492
+White Chi Count
+length whiteChis
 17
 1
 11
